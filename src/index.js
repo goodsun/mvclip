@@ -12,6 +12,7 @@ import { analyzeRouter } from './routes/analyze.js';
 import { processRouter } from './routes/process.js';
 import { formatsRouter } from './routes/formats.js';
 import { projectsRouter } from './routes/projects.js';
+import { fontsRouter } from './routes/fonts.js';
 
 dotenv.config();
 
@@ -47,6 +48,7 @@ app.use('/api/analyze', analyzeRouter);
 app.use('/api/process', processRouter);
 app.use('/api/formats', formatsRouter);
 app.use('/api/projects', projectsRouter);
+app.use('/api/fonts', fontsRouter);
 
 // プロジェクトファイル配信
 app.get('/projects/:videoId/:fileName', (req, res) => {

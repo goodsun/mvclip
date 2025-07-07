@@ -520,6 +520,67 @@ body {
     gap: 10px;
 }
 
+/* フォント設定 */
+.font-settings {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.font-settings h4 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+}
+
+.font-options {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+/* フォントプレビュー */
+.font-preview {
+    margin-top: 20px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    padding: 15px;
+    border: 1px solid #e9ecef;
+}
+
+.preview-label {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 10px;
+    font-weight: 500;
+}
+
+.subtitle-preview-list {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 10px;
+    height: 210px; /* 10行分の固定高さ (14px × 1.5 × 10 = 210px) */
+    overflow-y: auto;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.subtitle-text {
+    margin: 0 0 5px 0 !important;
+    color: #333 !important;
+    /* フォントファミリーはJavaScriptで動的に設定 */
+}
+
+.preview-placeholder {
+    color: #999;
+    text-align: center;
+    font-style: italic;
+    margin: 10px 0;
+    font-size: 12px;
+}
+
 /* エラーメッセージ */
 .error-message {
     position: fixed;

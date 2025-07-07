@@ -6,6 +6,7 @@ let isProcessing = false;
 // ページ読み込み時の初期化
 document.addEventListener('DOMContentLoaded', async () => {
     await loadProjects();
+    await loadSystemFonts();
     setupEventListeners();
     setupKeyboardShortcuts();
 });
@@ -23,6 +24,55 @@ async function loadProjects() {
     } catch (error) {
         console.error('プロジェクト読み込みエラー:', error);
         showError('プロジェクト一覧の読み込みに失敗しました');
+    }
+}
+
+// システムフォント一覧を読み込み
+async function loadSystemFonts() {
+    try {
+        console.log('📝 システムフォント一覧を読み込み中...');
+        const response = await fetch('/api/fonts');
+        const data = await response.json();
+        
+        if (data.success) {
+            const fontSelect = document.getElementById('subtitle-font');
+            if (fontSelect) {
+                // 既存のオプションをクリア
+                fontSelect.innerHTML = '';
+                
+                // システムフォントを追加
+                data.fonts.forEach(font => {
+                    const option = document.createElement('option');
+                    option.value = font.name;
+                    option.textContent = font.displayName;
+                    fontSelect.appendChild(option);
+                });
+                
+                // デフォルトでArialを選択
+                fontSelect.value = 'Arial';
+                
+                console.log(`✅ ${data.fonts.length}個のシステムフォントを読み込み完了`);
+                
+                if (data.fallback) {
+                    console.warn('⚠️ フォールバックフォントを使用中');
+                }
+            }
+        }
+    } catch (error) {
+        console.error('❌ システムフォント読み込みエラー:', error);
+        
+        // エラー時はデフォルトフォントを設定
+        const fontSelect = document.getElementById('subtitle-font');
+        if (fontSelect) {
+            fontSelect.innerHTML = `
+                <option value="Arial">Arial</option>
+                <option value="Times New Roman">Times New Roman</option>
+                <option value="Courier New">Courier New</option>
+                <option value="Helvetica">Helvetica</option>
+                <option value="Georgia">Georgia</option>
+                <option value="Impact">Impact</option>
+            `;
+        }
     }
 }
 
@@ -350,12 +400,29 @@ function setupEventListeners() {
     // 動画ダウンロード
     document.getElementById('download-processed-video').addEventListener('click', downloadFinalVideo);
     
-    // CSVファイルアップロード
-    document.getElementById('csv-upload-file').addEventListener('change', handleCSVUpload);
+    // CSVファイルアップロード（要素が存在する場合のみ）
+    const csvUploadFile = document.getElementById('csv-upload-file');
+    if (csvUploadFile) {
+        csvUploadFile.addEventListener('change', handleCSVUpload);
+    }
     
     // 再ダウンロード・再圧縮ボタン
     document.getElementById('redownload-high-btn').addEventListener('click', redownloadHighQuality);
     document.getElementById('recompress-analysis-btn').addEventListener('click', recompressAnalysisVideo);
+    
+    // フォント選択時のプレビュー更新（要素が存在する場合のみ）
+    const subtitleFont = document.getElementById('subtitle-font');
+    if (subtitleFont) {
+        subtitleFont.addEventListener('change', updateFontPreview);
+        // 初期プレビュー設定
+        updateFontPreview();
+    }
+    
+    // CSVエディタの内容が変更されたときにプレビューを更新
+    const csvEditor = document.getElementById('csv-editor-content');
+    if (csvEditor) {
+        csvEditor.addEventListener('input', updateFontPreview);
+    }
 }
 
 // CSVファイルアップロード処理
@@ -543,6 +610,9 @@ async function startAnalysis(event) {
         
         // 動画編集タブのCSVも更新
         document.getElementById('csv-editor-content').value = data.csvContent;
+        
+        // プレビューを更新
+        updateFontPreview();
         
         showInfo('字幕解析が完了しました');
         
@@ -1284,6 +1354,8 @@ async function loadCSVForEdit() {
         if (response.ok) {
             const data = await response.json();
             document.getElementById('csv-editor-content').value = data.csvContent;
+            // プレビューを更新
+            updateFontPreview();
         }
     } catch (error) {
         console.log('動画編集用CSV読み込みエラー:', error.message);
@@ -1380,6 +1452,9 @@ async function generatePreviewVideo(event) {
             }
         };
         
+        // フォント設定を取得
+        const selectedFont = document.getElementById('subtitle-font').value;
+        
         // 動画処理（解析用動画を使用 - 高速）
         const processRes = await fetch('/api/process', {
             method: 'POST',
@@ -1387,7 +1462,8 @@ async function generatePreviewVideo(event) {
             body: JSON.stringify({
                 videoPath: currentProject.files.analysis,
                 csvPath: uploadData.path,
-                sessionId: sessionId
+                sessionId: sessionId,
+                font: selectedFont
             })
         });
         
@@ -1500,6 +1576,9 @@ async function generateFinalVideo(event) {
             }
         };
         
+        // フォント設定を取得
+        const selectedFont = document.getElementById('subtitle-font').value;
+        
         // 動画処理（高画質版を使用 - 高品質）
         const processRes = await fetch('/api/process', {
             method: 'POST',
@@ -1507,7 +1586,8 @@ async function generateFinalVideo(event) {
             body: JSON.stringify({
                 videoPath: currentProject.files.highQuality,
                 csvPath: uploadData.path,
-                sessionId: sessionId
+                sessionId: sessionId,
+                font: selectedFont
             })
         });
         
@@ -1626,4 +1706,97 @@ function showInfo(message) {
         errorDiv.style.display = 'none';
         errorDiv.style.backgroundColor = '#dc3545';
     }, 3000);
+}
+
+// フォントプレビューの更新
+function updateFontPreview() {
+    const selectedFont = document.getElementById('subtitle-font').value;
+    const previewList = document.getElementById('subtitle-preview-list');
+    
+    if (!previewList) return;
+    
+    // システムフォントをそのまま使用（フォールバック付き）
+    const fontFamily = `"${selectedFont}", Arial, sans-serif`;
+    
+    // CSVコンテンツを取得
+    const csvContent = document.getElementById('csv-editor-content')?.value;
+    
+    if (!csvContent || csvContent.trim() === '') {
+        previewList.innerHTML = '<p class="preview-placeholder">CSVデータを読み込むと、ここに字幕が表示されます</p>';
+        return;
+    }
+    
+    // CSVをパース
+    const lines = csvContent.trim().split('\n');
+    const segments = [];
+    
+    // ヘッダーをスキップしてデータを読み込む（全件）
+    for (let i = 1; i < lines.length; i++) {
+        const values = parseCSVLine(lines[i]);
+        if (values.length >= 3) {
+            segments.push({
+                start: values[0],
+                end: values[1],
+                text: values[2]
+            });
+        }
+    }
+    
+    // プレビューを生成
+    if (segments.length === 0) {
+        previewList.innerHTML = '<p class="preview-placeholder">有効な字幕データが見つかりません</p>';
+        return;
+    }
+    
+    let previewHTML = '';
+    segments.forEach((segment, index) => {
+        const uniqueId = `subtitle-${index}`;
+        previewHTML += `<p id="${uniqueId}" class="subtitle-text">${escapeHtml(segment.text)}</p>`;
+    });
+    
+    previewList.innerHTML = previewHTML;
+    
+    // HTMLを設定した後、各要素に直接フォントを適用
+    segments.forEach((segment, index) => {
+        const element = document.getElementById(`subtitle-${index}`);
+        if (element) {
+            element.style.cssText = `font-family: ${fontFamily} !important; margin: 0 0 5px 0; color: #333;`;
+            
+            // デバッグ用：フォントが正しく適用されているか確認
+            console.log(`Element ${index}:`, {
+                selectedFont,
+                appliedFont: fontFamily,
+                computedFont: window.getComputedStyle(element).fontFamily,
+                element: element
+            });
+        }
+    });
+}
+
+// CSVの行をパースする関数
+function parseCSVLine(line) {
+    const values = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        
+        if (char === '"') {
+            if (inQuotes && line[i + 1] === '"') {
+                current += '"';
+                i++;
+            } else {
+                inQuotes = !inQuotes;
+            }
+        } else if (char === ',' && !inQuotes) {
+            values.push(current.trim());
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+    
+    values.push(current.trim());
+    return values;
 }

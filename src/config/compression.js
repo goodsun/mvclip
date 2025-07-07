@@ -81,14 +81,19 @@ export function getCompressionSettings(level = defaultCompressionLevel) {
 }
 
 // 動画処理用のFFmpegコマンドを生成
-export function generateVideoCommand(inputPath, outputPath, compressionLevel = defaultCompressionLevel, subtitlePath = null) {
+export function generateVideoCommand(inputPath, outputPath, compressionLevel = defaultCompressionLevel, subtitlePath = null, font = 'sans-serif') {
   const settings = getCompressionSettings(compressionLevel);
   
   let command = `ffmpeg -i "${inputPath}"`;
   
   // 字幕がある場合
   if (subtitlePath) {
-    command += ` -vf "subtitles=${subtitlePath}:force_style='FontSize=24,FontName=Noto Sans CJK JP,PrimaryColour=&HFFFFFF&,OutlineColour=&H000000&,BackColour=&H80000000&,Outline=2,Shadow=1,MarginV=20'"`;
+    // システムフォントをそのまま使用（フォールバックはArialに設定）
+    const ffmpegFont = font || 'Arial';
+    
+    console.log(`🔤 使用フォント: ${ffmpegFont}`);
+    
+    command += ` -vf "subtitles=${subtitlePath}:force_style='FontSize=24,FontName=${ffmpegFont},PrimaryColour=&HFFFFFF&,OutlineColour=&H000000&,BackColour=&H80000000&,Outline=2,Shadow=1,MarginV=20'"`;
   }
   
   // 映像設定

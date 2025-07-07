@@ -37,7 +37,7 @@ router.get('/progress/:sessionId', (req, res) => {
 // CSVに基づいて動画を処理
 router.post('/', async (req, res) => {
   try {
-    const { videoPath, csvPath, sessionId } = req.body;
+    const { videoPath, csvPath, sessionId, font } = req.body;
     
     if (!videoPath || !csvPath) {
       return res.status(400).json({ error: '動画パスとCSVパスが必要です' });
@@ -90,8 +90,8 @@ router.post('/', async (req, res) => {
       }
     };
 
-    // 動画を処理
-    const outputPath = await processVideoWithSubtitles(videoPath, segments, sendProgress);
+    // 動画を処理（フォント設定を渡す）
+    const outputPath = await processVideoWithSubtitles(videoPath, segments, sendProgress, font);
     
     // 出力ファイル名を取得
     const outputFilename = path.basename(outputPath);

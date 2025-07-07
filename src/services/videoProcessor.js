@@ -25,7 +25,7 @@ async function retryWithBackoff(fn, maxRetries = 3, delay = 1000) {
   }
 }
 
-export async function processVideoWithSubtitles(videoPath, segments, progressCallback = null, compressionLevel = 'medium') {
+export async function processVideoWithSubtitles(videoPath, segments, progressCallback = null, font = 'Noto Sans CJK JP', compressionLevel = 'medium') {
   let tempDir = null;
   const createdFiles = [];
   
@@ -63,7 +63,7 @@ export async function processVideoWithSubtitles(videoPath, segments, progressCal
       const extractCmd = `ffmpeg -ss ${startTime} -i "${videoPath}" -t ${duration} -c copy -y "${tempClipPath}"`;
       
       // 圧縮設定を使用してFFmpegコマンドを生成（字幕付き）
-      const ffmpegCmd = generateVideoCommand(tempClipPath, clipPath, compressionLevel, segmentSrtPath);
+      const ffmpegCmd = generateVideoCommand(tempClipPath, clipPath, compressionLevel, segmentSrtPath, font);
       
       console.log(`セグメント ${i + 1}/${segments.length} を処理中... (開始: ${segment.start}, 終了: ${segment.end})`);
       
