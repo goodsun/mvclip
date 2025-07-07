@@ -70,37 +70,47 @@
           <!-- タブナビゲーション -->
           <div class="tab-navigation">
             <button class="tab-btn active" data-tab="download">
-              📥 ダウンロード
+              📊 詳細情報
             </button>
             <button class="tab-btn" data-tab="preview">🎬 プレビュー</button>
             <button class="tab-btn" data-tab="analyze">🔍 字幕解析</button>
             <button class="tab-btn" data-tab="edit">✂️ 動画編集</button>
           </div>
 
-          <!-- ダウンロードタブ -->
+          <!-- 詳細情報タブ -->
           <div id="download-tab" class="tab-content active">
             <div class="download-section">
-              <h3>📹 動画ダウンロード</h3>
-
-              <div class="input-group">
-                <label for="project-url">YouTube URL:</label>
-                <input
-                  type="text"
-                  id="project-url"
-                  placeholder="https://www.youtube.com/watch?v=..."
-                />
+              <h3>📊 動画詳細情報</h3>
+              
+              <!-- 動画メタデータ -->
+              <div class="video-metadata">
+                <div class="metadata-item">
+                  <label>動画タイトル:</label>
+                  <span id="video-title">-</span>
+                </div>
+                <div class="metadata-item">
+                  <label>YouTube URL:</label>
+                  <span id="video-url">-</span>
+                </div>
+                <div class="metadata-item">
+                  <label>再生時間:</label>
+                  <span id="video-duration">-</span>
+                </div>
+                <div class="metadata-item">
+                  <label>解像度:</label>
+                  <span id="video-resolution">-</span>
+                </div>
+                <div class="metadata-item">
+                  <label>ファイルサイズ:</label>
+                  <span id="video-filesize">-</span>
+                </div>
+                <div class="metadata-item">
+                  <label>作成日時:</label>
+                  <span id="project-created">-</span>
+                </div>
               </div>
-
-              <div class="download-buttons">
-                <button
-                  type="button"
-                  id="create-project-btn"
-                  class="primary-btn"
-                >
-                  🚀 プロジェクト作成・ダウンロード開始
-                </button>
-              </div>
-
+              
+              <h3 style="margin-top: 30px;">📥 ダウンロード状態</h3>
               <div
                 id="download-progress"
                 class="progress-section"
@@ -376,6 +386,31 @@
                   </div>
 
                   <!-- フォント設定 -->
+                  <h4>🔤 フォント設定</h4>
+                  <div class="font-options">
+                    <div class="input-group">
+                      <label for="subtitle-font">フォント:</label>
+                      <select id="subtitle-font">
+                        <option value="Arial">Arial（読み込み中...）</option>
+                      </select>
+                    </div>
+                  </div>
+                  <!-- フォントプレビュー -->
+                  <div class="font-preview">
+                    <div class="preview-label">字幕プレビュー:</div>
+                    <div
+                      id="subtitle-preview-list"
+                      class="subtitle-preview-list"
+                    >
+                      <p class="preview-placeholder">
+                        CSVデータを読み込むと、ここに字幕が表示されます
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- フォント設定 -->
+                <div class="font-settings">
                   <h4>🔤 フォント設定</h4>
                   <div class="font-options">
                     <div class="input-group">
