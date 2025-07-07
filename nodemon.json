@@ -1,0 +1,5 @@
+{
+  "watch": ["src/", "public/"],
+  "ignore": ["workdir/", "temp/", "public/outputs/", "node_modules/", "*.log"],
+  "ext": "js,json,html,css"
+}

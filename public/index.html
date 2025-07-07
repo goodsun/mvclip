@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>YouTube Clip Subtitles - プロジェクト管理</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app-container">
+      <!-- サイドバー: プロジェクト一覧 -->
+      <div class="sidebar">
+        <div class="sidebar-header">
+          <h2>📁 プロジェクト</h2>
+          <button type="button" id="new-project-btn" class="new-project-btn">
+            + 新規作成
+          </button>
+        </div>
+
+        <div class="project-list" id="project-list">
+          <!-- プロジェクト一覧がここに動的に表示される -->
+        </div>
+      </div>
+
+      <!-- メインコンテンツ -->
+      <div class="main-content">
+        <!-- プロジェクト未選択時 -->
+        <div id="no-project-selected" class="welcome-screen">
+          <div class="welcome-content">
+            <h1>🎬 YouTube Clip Subtitles</h1>
+            <p>
+              左のサイドバーからプロジェクトを選択するか、新規作成してください
+            </p>
+            <button
+              type="button"
+              class="primary-btn"
+              onclick="document.getElementById('new-project-btn').click()"
+            >
+              新しいプロジェクトを作成
+            </button>
+          </div>
+        </div>
+
+        <!-- プロジェクト選択時 -->
+        <div id="project-workspace" class="workspace" style="display: none">
+          <!-- プロジェクト情報ヘッダー -->
+          <div class="project-header">
+            <div class="project-info">
+              <h1 id="project-title">プロジェクト名</h1>
+              <div class="project-meta">
+                <span id="project-duration">0:00</span>
+                <span class="separator">•</span>
+                <span id="project-status">準備中</span>
+              </div>
+            </div>
+            <div class="project-actions">
+              <button type="button" id="delete-project-btn" class="danger-btn">
+                🗑️ 削除
+              </button>
+            </div>
+          </div>
+
+          <!-- タブナビゲーション -->
+          <div class="tab-navigation">
+            <button class="tab-btn active" data-tab="download">
+              📥 ダウンロード
+            </button>
+            <button class="tab-btn" data-tab="preview">🎬 プレビュー</button>
+            <button class="tab-btn" data-tab="analyze">🔍 字幕解析</button>
+            <button class="tab-btn" data-tab="edit">✂️ 動画編集</button>
+          </div>
+
+          <!-- ダウンロードタブ -->
+          <div id="download-tab" class="tab-content active">
+            <div class="download-section">
+              <h3>📹 動画ダウンロード</h3>
+
+              <div class="input-group">
+                <label for="project-url">YouTube URL:</label>
+                <input
+                  type="text"
+                  id="project-url"
+                  placeholder="https://www.youtube.com/watch?v=..."
+                />
+              </div>
+
+              <div class="download-buttons">
+                <button
+                  type="button"
+                  id="create-project-btn"
+                  class="primary-btn"
+                >
+                  🚀 プロジェクト作成・ダウンロード開始
+                </button>
+              </div>
+
+              <div
+                id="download-progress"
+                class="progress-section"
+                style="display: none"
+              >
+                <div class="progress-bar">
+                  <div class="progress-fill"></div>
+                </div>
+                <p class="progress-text"></p>
+              </div>
+
+              <!-- ダウンロード結果 -->
+              <div class="download-results">
+                <div class="video-file-card">
+                  <div class="file-header">
+                    <h4>🎬 高画質版（編集用）</h4>
+                    <span id="high-quality-status" class="status-badge"
+                      >未ダウンロード</span
+                    >
+                  </div>
+                  <div class="file-info" id="high-quality-info">
+                    <p>動画編集で使用する高画質版です</p>
+                    <button type="button" 
+                            id="redownload-high-btn" 
+                            class="secondary-btn" 
+                            style="display: none; margin-top: 10px;">
+                      🔄 再ダウンロード
+                    </button>
+                  </div>
+                </div>
+
+                <div class="video-file-card">
+                  <div class="file-header">
+                    <h4>📝 解析用（字幕生成用）</h4>
+                    <span id="analysis-status" class="status-badge"
+                      >未ダウンロード</span
+                    >
+                  </div>
+                  <div class="file-info" id="analysis-info">
+                    <p>音声認識で字幕を生成する際に使用します</p>
+                    <button type="button" 
+                            id="recompress-analysis-btn" 
+                            class="secondary-btn" 
+                            style="display: none; margin-top: 10px;">
+                      🔄 再圧縮
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- プレビュータブ -->
+          <div id="preview-tab" class="tab-content">
+            <div class="preview-section">
+              <h3>🎬 動画プレビュー</h3>
+
+              <div class="preview-selector">
+                <label>プレビューする動画:</label>
+                <select id="preview-select">
+                  <option value="high">🎬 高画質版（編集用）</option>
+                  <option value="analysis">📝 解析用（字幕生成用）</option>
+                </select>
+              </div>
+
+              <div class="video-preview">
+                <video
+                  id="preview-video"
+                  controls
+                  controlsList="nodownload"
+                  width="100%"
+                  style="max-width: 800px"
+                >
+                  <p>動画がダウンロードされていません</p>
+                </video>
+
+                <!-- 統合コントロール -->
+                <div
+                  class="video-controls"
+                  style="margin-top: 10px; text-align: center"
+                >
+                  <div
+                    style="
+                      display: flex;
+                      justify-content: center;
+                      gap: 10px;
+                      margin-bottom: 10px;
+                    "
+                  >
+                    <button type="button" id="back-10s-btn" class="skip-btn">
+                      ⏪ 10秒戻る
+                    </button>
+                    <button type="button" id="back-5s-btn" class="skip-btn">
+                      ⏪ 5秒戻る
+                    </button>
+                    <button type="button" id="play-range-btn" class="skip-btn">
+                      🔄 範囲再生
+                    </button>
+                    <button type="button" id="play-full-btn" class="skip-btn">
+                      ▶️ 全体再生
+                    </button>
+                    <button type="button" id="forward-5s-btn" class="skip-btn">
+                      ⏩ 5秒進む
+                    </button>
+                    <button type="button" id="forward-10s-btn" class="skip-btn">
+                      ⏩ 10秒進む
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 範囲設定制御 -->
+                <div class="range-controls" style="margin-top: 15px; text-align: center">
+                  <div id="range-display" class="range-display" style="margin-bottom: 10px">
+                    再生範囲: 全体
+                  </div>
+                  <div
+                    style="
+                      display: flex;
+                      justify-content: center;
+                      align-items: center;
+                      gap: 15px;
+                    "
+                  >
+                    <button
+                      type="button"
+                      id="set-start-btn"
+                      class="secondary-btn"
+                    >
+                      ⏩ 開始位置に設定
+                    </button>
+                    <button
+                      type="button"
+                      id="set-end-btn"
+                      class="secondary-btn"
+                    >
+                      ⏸️ 終了位置に設定
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="video-details" id="video-details">
+                <!-- 動画の詳細情報がここに表示される -->
+              </div>
+            </div>
+          </div>
+
+          <!-- 字幕解析タブ -->
+          <div id="analyze-tab" class="tab-content">
+            <div class="analyze-section">
+              <h3>🔍 字幕解析</h3>
+
+              <div class="input-group">
+                <label>解析範囲 (任意):</label>
+                <div class="time-range">
+                  <input
+                    type="text"
+                    id="analyze-start-time"
+                    placeholder="0:00.000"
+                  />
+                  <span>〜</span>
+                  <input
+                    type="text"
+                    id="analyze-end-time"
+                    placeholder="5:00.000"
+                  />
+                  <button
+                    type="button"
+                    id="save-analysis-range-btn"
+                    class="secondary-btn"
+                    style="margin-left: 10px"
+                  >
+                    💾 範囲を保存
+                  </button>
+                </div>
+                <small style="color: #666; margin-top: 5px; display: block">
+                  範囲を指定しない場合は動画全体を解析します。範囲はプロジェクトに保存されます。
+                </small>
+              </div>
+
+              <div class="analysis-buttons">
+                <button
+                  type="button"
+                  id="start-analysis-btn"
+                  class="primary-btn"
+                >
+                  音声認識を開始
+                </button>
+                <button
+                  type="button"
+                  id="reanalyze-btn"
+                  class="secondary-btn"
+                  style="display: none"
+                >
+                  再解析
+                </button>
+              </div>
+
+              <div
+                id="analysis-progress"
+                class="progress-section"
+                style="display: none"
+              >
+                <div class="progress-bar">
+                  <div class="progress-fill"></div>
+                </div>
+                <p class="progress-text"></p>
+              </div>
+
+              <div id="csv-result" class="result-section" style="display: none">
+                <h4>CSV生成完了</h4>
+                <textarea id="csv-content" rows="15" cols="80"></textarea>
+                <div class="csv-actions">
+                  <button type="button" id="download-csv" class="secondary-btn">
+                    CSVをダウンロード
+                  </button>
+                  <button type="button" id="save-csv" class="primary-btn">
+                    プロジェクトに保存
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 動画編集タブ -->
+          <div id="edit-tab" class="tab-content">
+            <div class="edit-section">
+              <h3>✂️ 動画編集</h3>
+
+              <div class="csv-editor">
+                <h4>字幕データ（CSV）</h4>
+                <textarea
+                  id="csv-editor-content"
+                  rows="15"
+                  cols="80"
+                  placeholder="字幕解析を実行すると、ここにCSVデータが表示されます"
+                ></textarea>
+
+                <div class="edit-buttons">
+                  <button
+                    type="button"
+                    id="preview-video-btn"
+                    class="secondary-btn"
+                  >
+                    🔍 字幕確認用動画生成
+                  </button>
+                  <button
+                    type="button"
+                    id="final-video-btn"
+                    class="primary-btn"
+                  >
+                    🎬 正式動画生成
+                  </button>
+                </div>
+              </div>
+
+              <div
+                id="process-progress"
+                class="progress-section"
+                style="display: none"
+              >
+                <div class="progress-bar">
+                  <div class="progress-fill"></div>
+                </div>
+                <p class="progress-text"></p>
+              </div>
+
+              <div
+                id="video-result"
+                class="result-section"
+                style="display: none"
+              >
+                <h4>処理完了</h4>
+                <video
+                  id="result-video"
+                  controls
+                  width="100%"
+                  style="max-width: 800px"
+                ></video>
+                <div style="margin-top: 20px; text-align: center">
+                  <button
+                    type="button"
+                    id="download-processed-video"
+                    class="primary-btn"
+                  >
+                    動画をダウンロード
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 新規プロジェクト作成モーダル -->
+    <div id="new-project-modal" class="modal" style="display: none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>新しいプロジェクトを作成</h3>
+          <button type="button" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="input-group">
+            <label for="new-project-url">YouTube URL:</label>
+            <input
+              type="text"
+              id="new-project-url"
+              placeholder="https://www.youtube.com/watch?v=..."
+            />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="secondary-btn modal-close">
+            キャンセル
+          </button>
+          <button type="button" id="confirm-create-project" class="primary-btn">
+            作成
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="error-message" class="error-message" style="display: none"></div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
