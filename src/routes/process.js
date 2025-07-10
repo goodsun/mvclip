@@ -1,6 +1,7 @@
 import express from 'express';
 import { processVideoWithSubtitles } from '../services/videoProcessor.js';
 import { parseCSV } from '../utils/csv.js';
+import { updateProjectMetadata } from '../services/projectManager.js';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -37,7 +38,7 @@ router.get('/progress/:sessionId', (req, res) => {
 // CSVに基づいて動画を処理
 router.post('/', async (req, res) => {
   try {
-    const { videoPath, csvPath, sessionId, font } = req.body;
+    const { videoPath, csvPath, sessionId, font, projectId } = req.body;
     
     if (!videoPath || !csvPath) {
       return res.status(400).json({ error: '動画パスとCSVパスが必要です' });
@@ -100,17 +101,48 @@ router.post('/', async (req, res) => {
     // public/outputsに移動
     await fs.rename(outputPath, publicOutputPath);
     
+    // プロジェクトフォルダにも完成動画を保存（projectIdがある場合）
+    let projectFinalVideoPath = null;
+    if (projectId) {
+      try {
+        const workdir = path.join(process.cwd(), 'workdir');
+        const projectDir = path.join(workdir, projectId);
+        const finalVideoFilename = 'final_video.mp4';
+        projectFinalVideoPath = path.join(projectDir, finalVideoFilename);
+        
+        // プロジェクトフォルダに完成動画をコピー
+        await fs.copyFile(publicOutputPath, projectFinalVideoPath);
+        
+        // project.jsonに完成動画パスを記録
+        await updateProjectMetadata(projectId, {
+          'displayInfo.finalVideoPath': projectFinalVideoPath,
+          'displayInfo.finalVideoFilename': finalVideoFilename,
+          'displayInfo.finalVideoCreated': new Date().toISOString()
+        });
+        
+        console.log(`✅ 完成動画をプロジェクトに保存: ${projectFinalVideoPath}`);
+      } catch (error) {
+        console.error('❌ プロジェクトへの完成動画保存エラー:', error);
+        // エラーでも処理は続行
+      }
+    }
+    
     // 完了通知
     if (sessionId && progressClients.has(sessionId)) {
       const client = progressClients.get(sessionId);
-      client.write(`data: ${JSON.stringify({ type: 'complete', outputPath: `/outputs/${outputFilename}` })}\n\n`);
+      client.write(`data: ${JSON.stringify({ 
+        type: 'complete', 
+        outputPath: `/outputs/${outputFilename}`,
+        projectFinalVideo: projectFinalVideoPath ? true : false
+      })}\n\n`);
       progressClients.delete(sessionId);
     }
 
     res.json({
       success: true,
       outputPath: `/outputs/${outputFilename}`,
-      segments: segments.length
+      segments: segments.length,
+      projectFinalVideo: projectFinalVideoPath ? true : false
     });
   } catch (error) {
     console.error('動画処理エラー:', error);

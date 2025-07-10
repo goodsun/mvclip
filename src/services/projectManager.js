@@ -103,6 +103,37 @@ export async function updateProjectStatus(videoId, status) {
   }
 }
 
+export async function updateProjectMetadata(videoId, updates) {
+  const projectPath = path.join(WORKDIR, videoId);
+  
+  try {
+    const metadataPath = path.join(projectPath, 'project.json');
+    const metadata = JSON.parse(await fs.readFile(metadataPath, 'utf8'));
+    
+    // ネストしたプロパティも更新できるようにする
+    for (const [key, value] of Object.entries(updates)) {
+      if (key.includes('.')) {
+        const keys = key.split('.');
+        let obj = metadata;
+        for (let i = 0; i < keys.length - 1; i++) {
+          if (!obj[keys[i]]) obj[keys[i]] = {};
+          obj = obj[keys[i]];
+        }
+        obj[keys[keys.length - 1]] = value;
+      } else {
+        metadata[key] = value;
+      }
+    }
+    
+    metadata.updatedAt = new Date().toISOString();
+    
+    await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
+    console.log(`📊 プロジェクトメタデータ更新: ${videoId}`);
+  } catch (error) {
+    console.error('プロジェクトメタデータ更新エラー:', error);
+  }
+}
+
 export async function updateAnalysisRange(videoId, analysisRange) {
   const projectPath = path.join(WORKDIR, videoId);
   

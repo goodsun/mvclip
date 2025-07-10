@@ -86,12 +86,14 @@ function renderProjectList() {
     }
     
     projectList.innerHTML = projects.map(project => {
+        // project.jsonから直接タイトルと時間を取得
         const statusClass = getStatusClass(project.status);
-        const duration = formatDuration(project.duration);
+        const duration = project.duration ? formatDuration(project.duration) : '-';
+        const title = project.title || '-';
         
         return `
             <div class="project-item" data-project-id="${project.videoId}" onclick="selectProject('${project.videoId}')">
-                <h4>${escapeHtml(project.title)}</h4>
+                <h4>${escapeHtml(title)}</h4>
                 <div class="project-meta">
                     <span>${duration}</span>
                     <span class="separator">•</span>
@@ -140,6 +142,30 @@ function updateProjectDisplay() {
     document.getElementById('project-title').textContent = currentProject.title;
     document.getElementById('project-duration').textContent = formatDuration(currentProject.duration);
     document.getElementById('project-status').textContent = getStatusText(currentProject.status);
+    
+    // 詳細情報ページのメタデータを更新
+    if (currentProject.videoMetadata) {
+        const meta = currentProject.videoMetadata;
+        document.getElementById('video-title').textContent = meta.title || currentProject.title || '-';
+        document.getElementById('video-url').textContent = currentProject.url || '-';
+        document.getElementById('video-duration').textContent = meta.durationText || formatDuration(currentProject.duration);
+        document.getElementById('video-resolution').textContent = meta.resolution || '-';
+        document.getElementById('video-filesize').textContent = meta.filesizeText || '-';
+        document.getElementById('project-created').textContent = currentProject.createdAt ? 
+            new Date(currentProject.createdAt).toLocaleString('ja-JP') : '-';
+    } else {
+        // メタデータがない場合はデフォルト値
+        document.getElementById('video-title').textContent = currentProject.title || '-';
+        document.getElementById('video-url').textContent = currentProject.url || '-';
+        document.getElementById('video-duration').textContent = formatDuration(currentProject.duration);
+        document.getElementById('video-resolution').textContent = '-';
+        document.getElementById('video-filesize').textContent = '-';
+        document.getElementById('project-created').textContent = currentProject.createdAt ? 
+            new Date(currentProject.createdAt).toLocaleString('ja-JP') : '-';
+    }
+    
+    // 完成動画の表示チェック
+    updateDetailFinalVideo();
     
     // ダウンロード状況
     updateDownloadStatus();
@@ -400,6 +426,28 @@ function setupEventListeners() {
     document.getElementById('forward-5s-btn').addEventListener('click', () => skipVideo(5));
     document.getElementById('back-10s-btn').addEventListener('click', () => skipVideo(-10));
     document.getElementById('forward-10s-btn').addEventListener('click', () => skipVideo(10));
+    
+    // 範囲で新プロジェクト作成
+    const cropProjectBtn = document.getElementById('create-crop-project-btn');
+    if (cropProjectBtn) {
+        cropProjectBtn.addEventListener('click', createCropProjectFromPreviewRange);
+        console.log('✅ クロッププロジェクト作成ボタンのイベントリスナーを設定');
+    } else {
+        console.error('❌ create-crop-project-btn要素が見つかりません');
+    }
+    
+    // 完成動画用コントロール
+    document.getElementById('result-back-5s-btn').addEventListener('click', () => skipResultVideo(-5));
+    document.getElementById('result-forward-5s-btn').addEventListener('click', () => skipResultVideo(5));
+    document.getElementById('result-back-10s-btn').addEventListener('click', () => skipResultVideo(-10));
+    document.getElementById('result-forward-10s-btn').addEventListener('click', () => skipResultVideo(10));
+    
+    // 詳細情報ページの完成動画用コントロール
+    document.getElementById('detail-back-5s-btn').addEventListener('click', () => skipDetailVideo(-5));
+    document.getElementById('detail-forward-5s-btn').addEventListener('click', () => skipDetailVideo(5));
+    document.getElementById('detail-back-10s-btn').addEventListener('click', () => skipDetailVideo(-10));
+    document.getElementById('detail-forward-10s-btn').addEventListener('click', () => skipDetailVideo(10));
+    document.getElementById('detail-download-final-video').addEventListener('click', downloadDetailFinalVideo);
     
     // 動画ダウンロード
     document.getElementById('download-processed-video').addEventListener('click', downloadFinalVideo);
@@ -853,13 +901,30 @@ function parseTimeToSeconds(timeStr) {
     
     if (parts.length === 1) {
         // 秒のみ（例: "30.500"）
-        seconds = parseFloat(parts[0]);
+        const value = parseFloat(parts[0]);
+        if (isNaN(value)) {
+            throw new Error(`無効な時間形式: ${timeStr}`);
+        }
+        seconds = value;
     } else if (parts.length === 2) {
         // 分:秒（例: "1:30.500"）
-        seconds = parseInt(parts[0]) * 60 + parseFloat(parts[1]);
+        const minutes = parseInt(parts[0]);
+        const secs = parseFloat(parts[1]);
+        if (isNaN(minutes) || isNaN(secs) || minutes < 0 || secs < 0) {
+            throw new Error(`無効な時間形式: ${timeStr}`);
+        }
+        seconds = minutes * 60 + secs;
     } else if (parts.length === 3) {
         // 時:分:秒（例: "1:05:30.500"）
-        seconds = parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseFloat(parts[2]);
+        const hours = parseInt(parts[0]);
+        const minutes = parseInt(parts[1]);
+        const secs = parseFloat(parts[2]);
+        if (isNaN(hours) || isNaN(minutes) || isNaN(secs) || hours < 0 || minutes < 0 || secs < 0) {
+            throw new Error(`無効な時間形式: ${timeStr}`);
+        }
+        seconds = hours * 3600 + minutes * 60 + secs;
+    } else {
+        throw new Error(`無効な時間形式: ${timeStr}`);
     }
     
     return seconds;
@@ -1427,6 +1492,10 @@ async function loadCSVForEdit() {
 // 字幕確認用動画を生成
 async function generatePreviewVideo(event) {
     if (event) event.preventDefault();
+    
+    // 画面を最上位までスクロール
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
     if (!currentProject || !currentProject.files.analysis) {
         showError('解析用動画がダウンロードされていません');
         return;
@@ -1525,7 +1594,8 @@ async function generatePreviewVideo(event) {
                 videoPath: currentProject.files.analysis,
                 csvPath: uploadData.path,
                 sessionId: sessionId,
-                font: selectedFont
+                font: selectedFont,
+                projectId: currentProject.videoId
             })
         });
         
@@ -1551,6 +1621,10 @@ async function generatePreviewVideo(event) {
 // 正式動画を生成
 async function generateFinalVideo(event) {
     if (event) event.preventDefault();
+    
+    // 画面を最上位までスクロール
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
     if (!currentProject || !currentProject.files.highQuality) {
         showError('高画質動画がダウンロードされていません');
         return;
@@ -1649,7 +1723,8 @@ async function generateFinalVideo(event) {
                 videoPath: currentProject.files.highQuality,
                 csvPath: uploadData.path,
                 sessionId: sessionId,
-                font: selectedFont
+                font: selectedFont,
+                projectId: currentProject.videoId
             })
         });
         
@@ -1748,6 +1823,13 @@ function updateProgress(progressId, percentage, text) {
     progressSection.style.display = 'block';
     progressFill.style.width = `${percentage}%`;
     progressText.textContent = text;
+}
+
+function hideProgress(progressId) {
+    const progressSection = document.getElementById(progressId);
+    if (progressSection) {
+        progressSection.style.display = 'none';
+    }
 }
 
 function showError(message) {
@@ -1863,6 +1945,417 @@ function parseCSVLine(line) {
     return values;
 }
 
+// 完成動画用の制御関数
+let resultVideoRange = { start: null, end: null };
+
+// 完成動画のスキップ機能
+function skipResultVideo(seconds) {
+    const resultVideo = document.getElementById('result-video');
+    
+    if (resultVideo.readyState < 1) {
+        showError('動画が読み込まれていません');
+        return;
+    }
+    
+    const newTime = Math.max(0, Math.min(resultVideo.currentTime + seconds, resultVideo.duration));
+    resultVideo.currentTime = newTime;
+    
+    const timeString = secondsToTimeString(newTime);
+    const action = seconds > 0 ? '進む' : '戻る';
+    showInfo(`${Math.abs(seconds)}秒${action} → ${timeString}`);
+}
+
+// 完成動画の範囲再生
+function playResultVideoRange(event) {
+    if (event) event.preventDefault();
+    const resultVideo = document.getElementById('result-video');
+    
+    if (!resultVideoRange.start || !resultVideoRange.end) {
+        showError('再生範囲が設定されていません。開始位置と終了位置を設定してください。');
+        return;
+    }
+    
+    // 範囲再生モードを有効にして再生開始
+    enableResultRangeMode(resultVideo);
+    resultVideo.play();
+    
+    // ボタンの状態を更新
+    updateResultPlayModeButtons('range');
+    
+    showInfo('範囲リピート再生を開始しました');
+}
+
+// 完成動画の全体再生
+function playResultVideoFull(event) {
+    if (event) event.preventDefault();
+    const resultVideo = document.getElementById('result-video');
+    
+    // 範囲制限をクリアして通常再生モードにする
+    clearResultVideoRange(resultVideo);
+    resultVideo.play();
+    
+    // ボタンの状態を更新
+    updateResultPlayModeButtons('full');
+    
+    showInfo('全体再生を開始しました');
+}
+
+// 完成動画の開始位置設定
+function setResultStartPosition(event) {
+    if (event) event.preventDefault();
+    const resultVideo = document.getElementById('result-video');
+    
+    if (resultVideo.readyState < 1) {
+        showError('動画が読み込まれていません');
+        return;
+    }
+    
+    const currentTime = resultVideo.currentTime;
+    const timeString = secondsToTimeString(currentTime);
+    
+    // 既存の終了位置をチェック
+    if (resultVideoRange.end) {
+        const endTime = parseTimeToSeconds(resultVideoRange.end);
+        if (currentTime >= endTime) {
+            showError(`開始位置（${timeString}）は終了位置（${resultVideoRange.end}）より前に設定してください`);
+            return;
+        }
+    }
+    
+    resultVideoRange.start = timeString;
+    updateResultRangeDisplay();
+    
+    showInfo(`開始位置を ${timeString} に設定しました`);
+}
+
+// 完成動画の終了位置設定
+function setResultEndPosition(event) {
+    if (event) event.preventDefault();
+    const resultVideo = document.getElementById('result-video');
+    
+    if (resultVideo.readyState < 1) {
+        showError('動画が読み込まれていません');
+        return;
+    }
+    
+    const currentTime = resultVideo.currentTime;
+    const timeString = secondsToTimeString(currentTime);
+    
+    // 既存の開始位置をチェック
+    if (resultVideoRange.start) {
+        const startTime = parseTimeToSeconds(resultVideoRange.start);
+        if (currentTime <= startTime) {
+            showError(`終了位置（${timeString}）は開始位置（${resultVideoRange.start}）より後に設定してください`);
+            return;
+        }
+    }
+    
+    resultVideoRange.end = timeString;
+    updateResultRangeDisplay();
+    
+    showInfo(`終了位置を ${timeString} に設定しました`);
+}
+
+// 完成動画の範囲表示を更新
+function updateResultRangeDisplay() {
+    const rangeDisplay = document.getElementById('result-range-display');
+    if (resultVideoRange.start && resultVideoRange.end) {
+        rangeDisplay.textContent = `再生範囲: ${resultVideoRange.start} 〜 ${resultVideoRange.end}`;
+    } else if (resultVideoRange.start) {
+        rangeDisplay.textContent = `再生範囲: ${resultVideoRange.start} 〜 終了まで`;
+    } else if (resultVideoRange.end) {
+        rangeDisplay.textContent = `再生範囲: 開始 〜 ${resultVideoRange.end}`;
+    } else {
+        rangeDisplay.textContent = '再生範囲: 全体';
+    }
+}
+
+// 完成動画の範囲制限をクリア
+function clearResultVideoRange(videoElement) {
+    if (videoElement._resultRangeCheckHandler) {
+        videoElement.removeEventListener('timeupdate', videoElement._resultRangeCheckHandler);
+        videoElement._resultRangeCheckHandler = null;
+    }
+}
+
+// 完成動画の範囲再生モードを有効にする
+function enableResultRangeMode(videoElement) {
+    if (!resultVideoRange.start && !resultVideoRange.end) {
+        return;
+    }
+    
+    // 既存のハンドラーを削除
+    clearResultVideoRange(videoElement);
+    
+    const startTime = resultVideoRange.start ? parseTimeToSeconds(resultVideoRange.start) : 0;
+    const endTime = resultVideoRange.end ? parseTimeToSeconds(resultVideoRange.end) : videoElement.duration;
+    
+    // 開始位置に移動
+    videoElement.currentTime = startTime;
+    
+    // 範囲チェックハンドラーを設定
+    const rangeCheckHandler = () => {
+        if (videoElement.currentTime >= endTime) {
+            videoElement.currentTime = startTime;
+        }
+    };
+    
+    videoElement._resultRangeCheckHandler = rangeCheckHandler;
+    videoElement.addEventListener('timeupdate', rangeCheckHandler);
+}
+
+// 完成動画の再生モードボタンの状態を更新
+function updateResultPlayModeButtons(mode) {
+    const rangeBtn = document.getElementById('result-play-range-btn');
+    const fullBtn = document.getElementById('result-play-full-btn');
+    
+    // すべてのアクティブクラスを削除
+    rangeBtn.classList.remove('active-range', 'active-full');
+    fullBtn.classList.remove('active-range', 'active-full');
+    
+    // モードに応じてアクティブクラスを追加
+    if (mode === 'range') {
+        rangeBtn.classList.add('active-range');
+    } else if (mode === 'full') {
+        fullBtn.classList.add('active-full');
+    }
+}
+
+// 詳細情報ページの完成動画表示を更新
+function updateDetailFinalVideo() {
+    const finalVideoSection = document.getElementById('final-video-section');
+    const detailFinalVideo = document.getElementById('detail-final-video');
+    
+    // 完成動画のパスをチェック
+    const hasFinalVideo = checkForFinalVideo();
+    
+    if (hasFinalVideo) {
+        finalVideoSection.style.display = 'block';
+        detailFinalVideo.src = hasFinalVideo;
+        detailFinalVideo.style.display = 'block';
+    } else {
+        finalVideoSection.style.display = 'none';
+    }
+}
+
+// 完成動画の存在チェック
+function checkForFinalVideo() {
+    if (!currentProject) return false;
+    
+    // project.jsonのdisplayInfoに完成動画パスがあるかチェック
+    if (currentProject.displayInfo && currentProject.displayInfo.finalVideoPath) {
+        // プロジェクトに保存された完成動画のパスを使用
+        const videoId = currentProject.videoId;
+        const filename = currentProject.displayInfo.finalVideoFilename || 'final_video.mp4';
+        return `/api/projects/${videoId}/video/${filename}`;
+    }
+    
+    // 編集タブの結果動画があるかチェック（互換性のため）
+    const resultVideo = document.getElementById('result-video');
+    if (resultVideo && resultVideo.src) {
+        return resultVideo.src;
+    }
+    
+    return false;
+}
+
+// 詳細情報ページの完成動画用制御関数
+let detailVideoRange = { start: null, end: null };
+
+// 詳細情報ページの完成動画のスキップ機能
+function skipDetailVideo(seconds) {
+    const detailVideo = document.getElementById('detail-final-video');
+    
+    if (detailVideo.readyState < 1) {
+        showError('動画が読み込まれていません');
+        return;
+    }
+    
+    const newTime = Math.max(0, Math.min(detailVideo.currentTime + seconds, detailVideo.duration));
+    detailVideo.currentTime = newTime;
+    
+    const timeString = secondsToTimeString(newTime);
+    const action = seconds > 0 ? '進む' : '戻る';
+    showInfo(`${Math.abs(seconds)}秒${action} → ${timeString}`);
+}
+
+// 詳細情報ページの完成動画の範囲再生
+function playDetailVideoRange(event) {
+    if (event) event.preventDefault();
+    const detailVideo = document.getElementById('detail-final-video');
+    
+    if (!detailVideoRange.start || !detailVideoRange.end) {
+        showError('再生範囲が設定されていません。開始位置と終了位置を設定してください。');
+        return;
+    }
+    
+    // 範囲再生モードを有効にして再生開始
+    enableDetailRangeMode(detailVideo);
+    detailVideo.play();
+    
+    // ボタンの状態を更新
+    updateDetailPlayModeButtons('range');
+    
+    showInfo('範囲リピート再生を開始しました');
+}
+
+// 詳細情報ページの完成動画の全体再生
+function playDetailVideoFull(event) {
+    if (event) event.preventDefault();
+    const detailVideo = document.getElementById('detail-final-video');
+    
+    // 範囲制限をクリアして通常再生モードにする
+    clearDetailVideoRange(detailVideo);
+    detailVideo.play();
+    
+    // ボタンの状態を更新
+    updateDetailPlayModeButtons('full');
+    
+    showInfo('全体再生を開始しました');
+}
+
+// 詳細情報ページの完成動画の開始位置設定
+function setDetailStartPosition(event) {
+    if (event) event.preventDefault();
+    const detailVideo = document.getElementById('detail-final-video');
+    
+    if (detailVideo.readyState < 1) {
+        showError('動画が読み込まれていません');
+        return;
+    }
+    
+    const currentTime = detailVideo.currentTime;
+    const timeString = secondsToTimeString(currentTime);
+    
+    // 既存の終了位置をチェック
+    if (detailVideoRange.end) {
+        const endTime = parseTimeToSeconds(detailVideoRange.end);
+        if (currentTime >= endTime) {
+            showError(`開始位置（${timeString}）は終了位置（${detailVideoRange.end}）より前に設定してください`);
+            return;
+        }
+    }
+    
+    detailVideoRange.start = timeString;
+    updateDetailRangeDisplay();
+    
+    showInfo(`開始位置を ${timeString} に設定しました`);
+}
+
+// 詳細情報ページの完成動画の終了位置設定
+function setDetailEndPosition(event) {
+    if (event) event.preventDefault();
+    const detailVideo = document.getElementById('detail-final-video');
+    
+    if (detailVideo.readyState < 1) {
+        showError('動画が読み込まれていません');
+        return;
+    }
+    
+    const currentTime = detailVideo.currentTime;
+    const timeString = secondsToTimeString(currentTime);
+    
+    // 既存の開始位置をチェック
+    if (detailVideoRange.start) {
+        const startTime = parseTimeToSeconds(detailVideoRange.start);
+        if (currentTime <= startTime) {
+            showError(`終了位置（${timeString}）は開始位置（${detailVideoRange.start}）より後に設定してください`);
+            return;
+        }
+    }
+    
+    detailVideoRange.end = timeString;
+    updateDetailRangeDisplay();
+    
+    showInfo(`終了位置を ${timeString} に設定しました`);
+}
+
+// 詳細情報ページの完成動画の範囲表示を更新
+function updateDetailRangeDisplay() {
+    const rangeDisplay = document.getElementById('detail-range-display');
+    if (detailVideoRange.start && detailVideoRange.end) {
+        rangeDisplay.textContent = `再生範囲: ${detailVideoRange.start} 〜 ${detailVideoRange.end}`;
+    } else if (detailVideoRange.start) {
+        rangeDisplay.textContent = `再生範囲: ${detailVideoRange.start} 〜 終了まで`;
+    } else if (detailVideoRange.end) {
+        rangeDisplay.textContent = `再生範囲: 開始 〜 ${detailVideoRange.end}`;
+    } else {
+        rangeDisplay.textContent = '再生範囲: 全体';
+    }
+}
+
+// 詳細情報ページの完成動画の範囲制限をクリア
+function clearDetailVideoRange(videoElement) {
+    if (videoElement._detailRangeCheckHandler) {
+        videoElement.removeEventListener('timeupdate', videoElement._detailRangeCheckHandler);
+        videoElement._detailRangeCheckHandler = null;
+    }
+}
+
+// 詳細情報ページの完成動画の範囲再生モードを有効にする
+function enableDetailRangeMode(videoElement) {
+    if (!detailVideoRange.start && !detailVideoRange.end) {
+        return;
+    }
+    
+    // 既存のハンドラーを削除
+    clearDetailVideoRange(videoElement);
+    
+    const startTime = detailVideoRange.start ? parseTimeToSeconds(detailVideoRange.start) : 0;
+    const endTime = detailVideoRange.end ? parseTimeToSeconds(detailVideoRange.end) : videoElement.duration;
+    
+    // 開始位置に移動
+    videoElement.currentTime = startTime;
+    
+    // 範囲チェックハンドラーを設定
+    const rangeCheckHandler = () => {
+        if (videoElement.currentTime >= endTime) {
+            videoElement.currentTime = startTime;
+        }
+    };
+    
+    videoElement._detailRangeCheckHandler = rangeCheckHandler;
+    videoElement.addEventListener('timeupdate', rangeCheckHandler);
+}
+
+// 詳細情報ページの完成動画の再生モードボタンの状態を更新
+function updateDetailPlayModeButtons(mode) {
+    const rangeBtn = document.getElementById('detail-play-range-btn');
+    const fullBtn = document.getElementById('detail-play-full-btn');
+    
+    // すべてのアクティブクラスを削除
+    rangeBtn.classList.remove('active-range', 'active-full');
+    fullBtn.classList.remove('active-range', 'active-full');
+    
+    // モードに応じてアクティブクラスを追加
+    if (mode === 'range') {
+        rangeBtn.classList.add('active-range');
+    } else if (mode === 'full') {
+        fullBtn.classList.add('active-full');
+    }
+}
+
+// 詳細情報ページの完成動画をダウンロード
+function downloadDetailFinalVideo(event) {
+    if (event) event.preventDefault();
+    
+    const detailVideo = document.getElementById('detail-final-video');
+    if (!detailVideo.src) {
+        showError('ダウンロード可能な動画がありません');
+        return;
+    }
+    
+    // ダウンロードリンクを作成
+    const link = document.createElement('a');
+    link.href = detailVideo.src;
+    link.download = `${currentProject?.videoId || 'video'}_final.mp4`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showInfo('完成動画のダウンロードを開始しました');
+}
+
 // 空白補完ボタンのイベントリスナー
 document.getElementById('fill-gaps-btn')?.addEventListener('click', () => {
     const csvTextarea = document.getElementById('csv-content');
@@ -1960,4 +2453,170 @@ function fillGapsInCSV(csvContent) {
     
     console.log(`空白補完完了: ${gapsFound}箇所の空白を挿入`);
     return newLines.join('\n');
+}
+
+// 解析範囲で新プロジェクト作成（デバッグ）
+function debugCropProject() {
+    console.log('デバッグ: クロップ機能の状態');
+    console.log('currentProject:', currentProject);
+    const startTime = document.getElementById('analyze-start-time');
+    const endTime = document.getElementById('analyze-end-time');
+    const button = document.getElementById('create-crop-project-btn');
+    
+    console.log('要素の状態:', {
+        startTime: startTime ? startTime.value : 'なし',
+        endTime: endTime ? endTime.value : 'なし',
+        button: button ? 'あり' : 'なし',
+        isProcessing: isProcessing
+    });
+    
+    if (currentProject) {
+        console.log('プロジェクトファイル:', currentProject.files);
+    }
+}
+
+// プレビュー範囲で新プロジェクト作成
+async function createCropProjectFromPreviewRange(event) {
+    if (event) event.preventDefault();
+    
+    if (!currentProject) {
+        showError('プロジェクトが選択されていません');
+        return;
+    }
+    
+    if (!currentProject.files.highQuality) {
+        showError('高画質動画がダウンロードされていません');
+        return;
+    }
+    
+    // プレビューページの範囲設定を取得
+    const startTimeInput = currentProject.analysisRange?.start?.trim();
+    const endTimeInput = currentProject.analysisRange?.end?.trim();
+    
+    if (!startTimeInput || !endTimeInput) {
+        showError('プレビューページで開始時間と終了時間を両方設定してください');
+        return;
+    }
+    
+    // 時間の妥当性チェック
+    let startSeconds, endSeconds;
+    try {
+        startSeconds = parseTimeToSeconds(startTimeInput);
+        endSeconds = parseTimeToSeconds(endTimeInput);
+    } catch (error) {
+        showError('時間の形式が正しくありません。例: 1:30 または 0:05:30');
+        return;
+    }
+    
+    if (startSeconds >= endSeconds) {
+        showError('開始時間は終了時間より前に設定してください');
+        return;
+    }
+    
+    if (startSeconds < 0 || endSeconds < 0) {
+        showError('時間は0以上の値で設定してください');
+        return;
+    }
+    
+    // 動画の長さをチェック（分析用動画から取得）
+    const analysisVideo = document.getElementById('analysis-video');
+    if (analysisVideo && analysisVideo.duration) {
+        if (endSeconds > analysisVideo.duration) {
+            showError(`終了時間が動画の長さ（${Math.floor(analysisVideo.duration)}秒）を超えています`);
+            return;
+        }
+    }
+    
+    // クロップ範囲が短すぎる場合の警告
+    const duration = endSeconds - startSeconds;
+    if (duration < 1) {
+        showError('クロップ範囲は1秒以上に設定してください');
+        return;
+    }
+    
+    if (isProcessing) {
+        showError('他の処理が実行中です');
+        return;
+    }
+    
+    isProcessing = true;
+    
+    try {
+        console.log('🎬 クロップ動画作成開始:', {
+            startTime: startTimeInput,
+            endTime: endTimeInput,
+            startSeconds: startSeconds,
+            endSeconds: endSeconds,
+            duration: endSeconds - startSeconds
+        });
+        
+        // 画面を最上位までスクロール
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        
+        updateProgress('analysis-progress', 10, 'クロップ動画を生成中...');
+        
+        // クロップ動画を生成
+        const cropResponse = await fetch('/api/crop-video', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                projectId: currentProject.videoId,
+                videoPath: currentProject.files.highQuality,
+                startTime: startTimeInput,
+                endTime: endTimeInput,
+                sessionId: `crop_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+            })
+        });
+        
+        if (!cropResponse.ok) {
+            throw new Error('クロップ動画の生成に失敗しました');
+        }
+        
+        const cropResult = await cropResponse.json();
+        
+        updateProgress('analysis-progress', 50, '新プロジェクトを作成中...');
+        
+        // 新プロジェクトを作成
+        const originalTitle = currentProject.title;
+        const cropInfo = `${startTimeInput}-${endTimeInput}`;
+        const newTitle = `${originalTitle} (クロップ: ${cropInfo})`;
+        
+        const projectResponse = await fetch('/api/create-crop-project', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                originalProjectId: currentProject.videoId,
+                croppedVideoPath: cropResult.outputPath,
+                title: newTitle,
+                cropRange: { start: startTimeInput, end: endTimeInput },
+                originalUrl: currentProject.url
+            })
+        });
+        
+        if (!projectResponse.ok) {
+            throw new Error('新プロジェクトの作成に失敗しました');
+        }
+        
+        const projectResult = await projectResponse.json();
+        
+        updateProgress('analysis-progress', 100, '完了！');
+        
+        setTimeout(() => {
+            hideProgress('analysis-progress');
+            showInfo(`新プロジェクト「${projectResult.title}」が作成されました`);
+            
+            // プロジェクト一覧を更新
+            loadProjects().then(() => {
+                // 新しいプロジェクトを選択
+                selectProject(projectResult.projectId);
+            });
+        }, 1000);
+        
+    } catch (error) {
+        console.error('クロッププロジェクト作成エラー:', error);
+        hideProgress('analysis-progress');
+        showError(error.message || 'クロッププロジェクトの作成に失敗しました');
+    } finally {
+        isProcessing = false;
+    }
 }

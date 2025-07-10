@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { createProject, saveProjectFile, updateProjectStatus } from './projectManager.js';
+import { createProject, saveProjectFile, updateProjectStatus, updateProjectMetadata } from './projectManager.js';
 
 const execAsync = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
@@ -317,29 +317,103 @@ export async function createVideoProject(url, options = {}, progressCallback = n
     }
     
     // 動画情報を取得
-    const info = await youtubeDl(url, {
-      dumpSingleJson: true,
-      noCheckCertificates: true,
-      noWarnings: true,
-      addHeader: [
-        'referer:youtube.com',
-        'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      ]
+    let info;
+    try {
+      info = await youtubeDl(url, {
+        dumpSingleJson: true,
+        noCheckCertificates: true,
+        noWarnings: true,
+        addHeader: [
+          'referer:youtube.com',
+          'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        ]
+      });
+    } catch (error) {
+      console.error('❗ youtube-dl-execエラー:', error.message);
+      // 代替オプションを試す
+      console.log('🔄 代替オプションで再試行中...');
+      info = await youtubeDl(url, {
+        dumpSingleJson: true,
+        noCheckCertificates: true,
+        noWarnings: true,
+        skipDownload: true,
+        noPlaylist: true,
+        addHeader: [
+          'referer:youtube.com',
+          'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        ]
+      });
+    }
+    
+    // デバッグ用に取得した情報をログ出力
+    console.log('🔍 取得した情報:', {
+      id: info.id || 'N/A',
+      title: info.title || 'N/A',
+      duration: info.duration || 'N/A',
+      width: info.width || 'N/A',
+      height: info.height || 'N/A',
+      fps: info.fps || 'N/A',
+      uploader: info.uploader || 'N/A'
     });
     
-    console.log(`📺 動画タイトル: ${info.title}`);
-    console.log(`⏱️ 動画時間: ${Math.floor(info.duration / 60)}分${info.duration % 60}秒`);
+    // 必須フィールドの検証
+    if (!info.id) {
+      throw new Error('動画IDが取得できませんでした');
+    }
+    
+    // タイトルと時間のフォールバック
+    const title = info.title || `動画_${info.id}`;
+    const duration = info.duration || 0;
+    
+    console.log(`📺 動画タイトル: ${title}`);
+    console.log(`⏱️ 動画時間: ${duration > 0 ? `${Math.floor(duration / 60)}分${duration % 60}秒` : '不明'}`);
+    
+    // 統一された表示用メタデータを準備（フォールバック付き）
+    const metadata = {
+      videoId: info.id,
+      title: title,
+      duration: duration,
+      durationText: duration > 0 ? `${Math.floor(duration / 60)}:${String(duration % 60).padStart(2, '0')}` : '-',
+      url: url,
+      status: 'creating',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      
+      // 表示用の詳細情報（全て統一）
+      displayInfo: {
+        title: title,
+        url: url,
+        duration: duration,
+        durationText: duration > 0 ? `${Math.floor(duration / 60)}:${String(duration % 60).padStart(2, '0')}` : '-',
+        videoId: info.id,
+        description: info.description || '',
+        uploadDate: info.upload_date || null,
+        uploader: info.uploader || '-',
+        uploaderUrl: info.uploader_url || null,
+        viewCount: info.view_count || 0,
+        likeCount: info.like_count || 0,
+        resolution: (info.width && info.height) ? `${info.width}x${info.height}` : '-',
+        fps: info.fps || 0,
+        format: info.format || '-',
+        filesize: null, // 後で更新
+        filesizeText: '-', // 後で更新
+        thumbnail: info.thumbnail || null,
+        categories: info.categories || [],
+        tags: info.tags || [],
+        createdAt: new Date().toISOString()
+      },
+      
+      // 後方互換性のため（既存コードが参照する可能性）
+      timeRange: null,
+      analysisRange: null
+    };
     
     if (progressCallback) {
-      progressCallback('project', 20, `プロジェクト作成中: ${info.title}`);
+      progressCallback('project', 20, `プロジェクト作成中: ${title}`);
     }
     
     // プロジェクトを作成
-    const projectPath = await createProject(info.id, {
-      title: info.title,
-      duration: info.duration,
-      url: url
-    }, options.timeRange);
+    const projectPath = await createProject(info.id, metadata, options.timeRange);
     
     // tempディレクトリを作成
     const tempDir = path.join(__dirname, '../../temp');
@@ -380,8 +454,18 @@ export async function createVideoProject(url, options = {}, progressCallback = n
       progressCallback('download', 60, '✅ 高画質版ダウンロード完了');
     }
     
+    // 高画質版のファイルサイズを取得
+    const highQualityStats = fs.statSync(highQualityPath);
+    const highQualityFilesize = highQualityStats.size;
+    
     // プロジェクトに保存
     await saveProjectFile(info.id, 'video_high.mp4', highQualityPath);
+    
+    // メタデータを更新（ファイルサイズ情報を追加）
+    await updateProjectMetadata(info.id, {
+      'displayInfo.filesize': highQualityFilesize,
+      'displayInfo.filesizeText': `${(highQualityFilesize / 1024 / 1024).toFixed(1)} MB`
+    });
     
     // 2. 高画質版から解析用動画を圧縮生成
     console.log('📝 解析用動画を圧縮生成中...');

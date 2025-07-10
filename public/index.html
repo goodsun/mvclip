@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; img-src 'self' data:; media-src 'self' blob:;" />
     <title>YouTube Clip Subtitles - プロジェクト管理</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -81,7 +82,7 @@
           <div id="download-tab" class="tab-content active">
             <div class="download-section">
               <h3>📊 動画詳細情報</h3>
-              
+
               <!-- 動画メタデータ -->
               <div class="video-metadata">
                 <div class="metadata-item">
@@ -109,8 +110,48 @@
                   <span id="project-created">-</span>
                 </div>
               </div>
-              
-              <h3 style="margin-top: 30px;">📥 ダウンロード状態</h3>
+
+              <!-- 完成動画セクション -->
+              <div id="final-video-section" style="display: none; margin-top: 30px;">
+                <h3>🎬 完成動画</h3>
+                <div class="video-preview">
+                  <video
+                    id="detail-final-video"
+                    controls
+                    controlsList="nodownload"
+                    width="100%"
+                    style="max-width: 800px"
+                  >
+                    <p>完成動画が利用できません</p>
+                  </video>
+
+                  <!-- 完成動画用コントロール -->
+                  <div class="video-controls" style="margin-top: 10px; text-align: center">
+                    <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 10px;">
+                      <button type="button" id="detail-back-10s-btn" class="skip-btn">
+                        ⏪ 10秒戻る
+                      </button>
+                      <button type="button" id="detail-back-5s-btn" class="skip-btn">
+                        ⏪ 5秒戻る
+                      </button>
+                      <button type="button" id="detail-forward-5s-btn" class="skip-btn">
+                        ⏩ 5秒進む
+                      </button>
+                      <button type="button" id="detail-forward-10s-btn" class="skip-btn">
+                        ⏩ 10秒進む
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style="margin-top: 20px; text-align: center">
+                    <button type="button" id="detail-download-final-video" class="primary-btn">
+                      完成動画をダウンロード
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <h3 style="margin-top: 30px">📥 ダウンロード状態</h3>
               <div
                 id="download-progress"
                 class="progress-section"
@@ -261,6 +302,22 @@
                     </button>
                   </div>
                 </div>
+                
+                <!-- 動画クロップ機能 -->
+                <div class="crop-section" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                  <h4 style="margin-bottom: 10px;">✂️ 動画クロップ</h4>
+                  <p style="font-size: 14px; color: #666; margin-bottom: 15px;">
+                    上記の範囲設定で動画をクロップし、新しいプロジェクトとして保存します
+                  </p>
+                  <button
+                    type="button"
+                    id="create-crop-project-btn"
+                    class="primary-btn"
+                  >
+                    ✂️ 範囲で新プロジェクト作成
+                  </button>
+                </div>
+
               </div>
 
               <div class="video-details" id="video-details">
@@ -308,7 +365,7 @@
                   id="start-analysis-btn"
                   class="primary-btn"
                 >
-                  音声認識を開始
+                  🔍 音声認識を開始
                 </button>
                 <button
                   type="button"
@@ -319,6 +376,7 @@
                   再解析
                 </button>
               </div>
+              
 
               <div
                 id="analysis-progress"
@@ -359,6 +417,59 @@
               <h3>✂️ 動画編集</h3>
 
               <div class="csv-editor">
+                <div
+                  id="process-progress"
+                  class="progress-section"
+                  style="display: none"
+                >
+                  <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                  </div>
+                  <p class="progress-text"></p>
+                </div>
+
+                <div
+                  id="video-result"
+                  class="result-section"
+                  style="display: none"
+                >
+                  <h4>完成動画</h4>
+                  <video
+                    id="result-video"
+                    controls
+                    width="100%"
+                    style="max-width: 800px"
+                  ></video>
+                  
+                  <!-- 完成動画用コントロール -->
+                  <div class="video-controls" style="margin-top: 10px; text-align: center">
+                    <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 10px;">
+                      <button type="button" id="result-back-10s-btn" class="skip-btn">
+                        ⏪ 10秒戻る
+                      </button>
+                      <button type="button" id="result-back-5s-btn" class="skip-btn">
+                        ⏪ 5秒戻る
+                      </button>
+                      <button type="button" id="result-forward-5s-btn" class="skip-btn">
+                        ⏩ 5秒進む
+                      </button>
+                      <button type="button" id="result-forward-10s-btn" class="skip-btn">
+                        ⏩ 10秒進む
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div style="margin-top: 20px; text-align: center">
+                    <button
+                      type="button"
+                      id="download-processed-video"
+                      class="primary-btn"
+                    >
+                      動画をダウンロード
+                    </button>
+                  </div>
+                </div>
+
                 <div class="font-settings">
                   <h4>字幕データ（CSV）</h4>
                   <textarea
@@ -407,82 +518,23 @@
                       </p>
                     </div>
                   </div>
-                </div>
 
-                <!-- フォント設定 -->
-                <div class="font-settings">
-                  <h4>🔤 フォント設定</h4>
-                  <div class="font-options">
-                    <div class="input-group">
-                      <label for="subtitle-font">フォント:</label>
-                      <select id="subtitle-font">
-                        <option value="Arial">Arial（読み込み中...）</option>
-                      </select>
-                    </div>
-                  </div>
-                  <!-- フォントプレビュー -->
-                  <div class="font-preview">
-                    <div class="preview-label">字幕プレビュー:</div>
-                    <div
-                      id="subtitle-preview-list"
-                      class="subtitle-preview-list"
+                  <div class="edit-buttons">
+                    <button
+                      type="button"
+                      id="preview-video-btn"
+                      class="secondary-btn"
                     >
-                      <p class="preview-placeholder">
-                        CSVデータを読み込むと、ここに字幕が表示されます
-                      </p>
-                    </div>
+                      🔍 字幕確認用動画生成
+                    </button>
+                    <button
+                      type="button"
+                      id="final-video-btn"
+                      class="primary-btn"
+                    >
+                      🎬 正式動画生成
+                    </button>
                   </div>
-                </div>
-
-                <div class="edit-buttons">
-                  <button
-                    type="button"
-                    id="preview-video-btn"
-                    class="secondary-btn"
-                  >
-                    🔍 字幕確認用動画生成
-                  </button>
-                  <button
-                    type="button"
-                    id="final-video-btn"
-                    class="primary-btn"
-                  >
-                    🎬 正式動画生成
-                  </button>
-                </div>
-              </div>
-
-              <div
-                id="process-progress"
-                class="progress-section"
-                style="display: none"
-              >
-                <div class="progress-bar">
-                  <div class="progress-fill"></div>
-                </div>
-                <p class="progress-text"></p>
-              </div>
-
-              <div
-                id="video-result"
-                class="result-section"
-                style="display: none"
-              >
-                <h4>処理完了</h4>
-                <video
-                  id="result-video"
-                  controls
-                  width="100%"
-                  style="max-width: 800px"
-                ></video>
-                <div style="margin-top: 20px; text-align: center">
-                  <button
-                    type="button"
-                    id="download-processed-video"
-                    class="primary-btn"
-                  >
-                    動画をダウンロード
-                  </button>
                 </div>
               </div>
             </div>

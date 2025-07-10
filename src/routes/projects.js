@@ -1,6 +1,8 @@
 import express from 'express';
 import { createVideoProject } from '../services/youtube.js';
 import { listProjects, getProject, deleteProject, initializeWorkdir, updateAnalysisRange, saveCSVContent, getCSVContent } from '../services/projectManager.js';
+import fs from 'fs/promises';
+import path from 'path';
 
 const router = express.Router();
 
@@ -308,6 +310,133 @@ router.get('/create/progress/:sessionId', (req, res) => {
     console.error('進捗SSEエラー:', err);
     progressClients.delete(sessionId);
   });
+});
+
+// 完成動画を配信
+router.get('/:videoId/video/:filename', async (req, res) => {
+  try {
+    const { videoId, filename } = req.params;
+    
+    // プロジェクト情報を取得
+    const project = await getProject(videoId);
+    if (!project) {
+      return res.status(404).json({ error: 'プロジェクトが見つかりません' });
+    }
+    
+    // 完成動画ファイルのパスを構築
+    const workdir = path.join(process.cwd(), 'workdir');
+    const projectDir = path.join(workdir, videoId);
+    const videoPath = path.join(projectDir, filename);
+    
+    // ファイルの存在確認
+    try {
+      await fs.access(videoPath);
+    } catch (error) {
+      return res.status(404).json({ error: '動画ファイルが見つかりません' });
+    }
+    
+    // ファイル情報を取得
+    const stat = await fs.stat(videoPath);
+    const fileSize = stat.size;
+    
+    // レンジリクエストのサポート
+    const range = req.headers.range;
+    if (range) {
+      const parts = range.replace(/bytes=/, "").split("-");
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+      const chunksize = (end - start) + 1;
+      
+      let fileStream = null;
+      try {
+        fileStream = await fs.open(videoPath, 'r');
+        const stream = fileStream.createReadStream({ start, end });
+        
+        res.writeHead(206, {
+          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': chunksize,
+          'Content-Type': 'video/mp4',
+        });
+        
+        stream.pipe(res);
+        
+        // ストリーム終了時のクリーンアップ
+        stream.on('end', () => {
+          if (fileStream) {
+            fileStream.close().catch(err => console.error('ファイルクローズエラー:', err));
+          }
+        });
+        
+        // エラー時のクリーンアップ
+        stream.on('error', (err) => {
+          console.error('ストリームエラー:', err);
+          if (fileStream) {
+            fileStream.close().catch(err => console.error('ファイルクローズエラー:', err));
+          }
+        });
+        
+        // クライアント切断時のクリーンアップ
+        req.on('close', () => {
+          if (fileStream) {
+            fileStream.close().catch(err => console.error('ファイルクローズエラー:', err));
+          }
+        });
+        
+      } catch (error) {
+        if (fileStream) {
+          fileStream.close().catch(err => console.error('ファイルクローズエラー:', err));
+        }
+        throw error;
+      }
+    } else {
+      let fileStream = null;
+      try {
+        fileStream = await fs.open(videoPath, 'r');
+        const stream = fileStream.createReadStream();
+        
+        res.writeHead(200, {
+          'Content-Length': fileSize,
+          'Content-Type': 'video/mp4',
+        });
+        
+        stream.pipe(res);
+        
+        // ストリーム終了時のクリーンアップ
+        stream.on('end', () => {
+          if (fileStream) {
+            fileStream.close().catch(err => console.error('ファイルクローズエラー:', err));
+          }
+        });
+        
+        // エラー時のクリーンアップ
+        stream.on('error', (err) => {
+          console.error('ストリームエラー:', err);
+          if (fileStream) {
+            fileStream.close().catch(err => console.error('ファイルクローズエラー:', err));
+          }
+        });
+        
+        // クライアント切断時のクリーンアップ
+        req.on('close', () => {
+          if (fileStream) {
+            fileStream.close().catch(err => console.error('ファイルクローズエラー:', err));
+          }
+        });
+        
+      } catch (error) {
+        if (fileStream) {
+          fileStream.close().catch(err => console.error('ファイルクローズエラー:', err));
+        }
+        throw error;
+      }
+    }
+  } catch (error) {
+    console.error('動画配信エラー:', error);
+    res.status(500).json({ 
+      error: error.message || '動画の配信に失敗しました' 
+    });
+  }
 });
 
 // 初期化（一度だけ実行）
