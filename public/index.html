@@ -90,7 +90,7 @@
                   <span id="video-title">-</span>
                 </div>
                 <div class="metadata-item">
-                  <label>YouTube URL:</label>
+                  <label>Original:</label>
                   <span id="video-url">-</span>
                 </div>
                 <div class="metadata-item">
@@ -134,6 +134,12 @@
                       <button type="button" id="detail-back-5s-btn" class="skip-btn">
                         ⏪ 5秒戻る
                       </button>
+                      <button type="button" id="detail-back-1s-btn" class="skip-btn">
+                        ⏪ 1秒戻る
+                      </button>
+                      <button type="button" id="detail-forward-1s-btn" class="skip-btn">
+                        ⏩ 1秒進む
+                      </button>
                       <button type="button" id="detail-forward-5s-btn" class="skip-btn">
                         ⏩ 5秒進む
                       </button>
@@ -151,7 +157,7 @@
                 </div>
               </div>
 
-              <h3 style="margin-top: 30px">📥 ダウンロード状態</h3>
+              <h3 style="margin-top: 30px">📊 動画ステータス</h3>
               <div
                 id="download-progress"
                 class="progress-section"
@@ -163,7 +169,7 @@
                 <p class="progress-text"></p>
               </div>
 
-              <!-- ダウンロード結果 -->
+              <!-- 動画ステータス結果 -->
               <div class="download-results">
                 <div class="video-file-card">
                   <div class="file-header">
@@ -181,6 +187,93 @@
                       style="display: none; margin-top: 10px"
                     >
                       🔄 再ダウンロード
+                    </button>
+                    
+                    <!-- 動画結合機能 -->
+                    <div id="video-concat-section" style="display: none; margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 6px; border: 1px solid #dee2e6;">
+                      <h5 style="margin: 0 0 10px 0; font-size: 14px; color: #495057;">📎 動画・静止画結合</h5>
+                      <p style="font-size: 12px; color: #666; margin-bottom: 10px;">
+                        動画ファイルまたは静止画を選択して、現在の動画と結合できます
+                      </p>
+                      
+                      <div style="margin-bottom: 10px;">
+                        <label style="font-size: 12px; color: #495057; margin-bottom: 5px; display: block;">ファイル種類:</label>
+                        <div style="margin-bottom: 8px;">
+                          <label style="font-size: 12px; margin-right: 15px;">
+                            <input type="radio" name="concat-file-type" value="video" checked style="margin-right: 5px;">
+                            📹 動画
+                          </label>
+                          <label style="font-size: 12px;">
+                            <input type="radio" name="concat-file-type" value="image" style="margin-right: 5px;">
+                            🖼️ 静止画
+                          </label>
+                        </div>
+                      </div>
+                      
+                      <div style="margin-bottom: 10px;">
+                        <label style="font-size: 12px; color: #495057; margin-bottom: 5px; display: block;" id="concat-file-label">動画ファイル:</label>
+                        <input
+                          type="file"
+                          id="concat-video-file"
+                          accept="video/*"
+                          style="margin-bottom: 8px;"
+                        />
+                      </div>
+                      
+                      <div style="margin-bottom: 10px; display: none;" id="image-duration-section">
+                        <label style="font-size: 12px; color: #495057; margin-bottom: 5px; display: block;">表示時間（秒）:</label>
+                        <input
+                          type="number"
+                          id="image-duration"
+                          min="0.1"
+                          max="600"
+                          step="0.1"
+                          value="3"
+                          style="width: 100px; padding: 4px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;"
+                        />
+                      </div>
+                      
+                      <div style="margin-bottom: 10px;">
+                        <label style="font-size: 12px; color: #495057; margin-bottom: 5px; display: block;">結合方法:</label>
+                        <div>
+                          <label style="font-size: 12px; margin-right: 15px;">
+                            <input type="radio" name="concat-position" value="prepend" style="margin-right: 5px;">
+                            前に挿入
+                          </label>
+                          <label style="font-size: 12px;">
+                            <input type="radio" name="concat-position" value="append" checked style="margin-right: 5px;">
+                            後ろに追加
+                          </label>
+                        </div>
+                      </div>
+                      
+                      <div style="display: flex; gap: 8px;">
+                        <button
+                          type="button"
+                          id="concat-video-btn"
+                          class="secondary-btn"
+                          style="font-size: 12px; padding: 6px 12px;"
+                        >
+                          📎 結合
+                        </button>
+                        <button
+                          type="button"
+                          id="cancel-concat-btn"
+                          class="secondary-btn"
+                          style="font-size: 12px; padding: 6px 12px; background: #6c757d;"
+                        >
+                          キャンセル
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <button
+                      type="button"
+                      id="show-concat-btn"
+                      class="secondary-btn"
+                      style="display: none; margin-top: 10px; font-size: 12px; padding: 6px 12px;"
+                    >
+                      📎 動画・静止画を結合
                     </button>
                   </div>
                 </div>
@@ -251,11 +344,17 @@
                     <button type="button" id="back-5s-btn" class="skip-btn">
                       ⏪ 5秒戻る
                     </button>
+                    <button type="button" id="back-1s-btn" class="skip-btn">
+                      ⏪ 1秒戻る
+                    </button>
                     <button type="button" id="play-range-btn" class="skip-btn">
                       🔄 範囲再生
                     </button>
                     <button type="button" id="play-full-btn" class="skip-btn">
                       ▶️ 全体再生
+                    </button>
+                    <button type="button" id="forward-1s-btn" class="skip-btn">
+                      ⏩ 1秒進む
                     </button>
                     <button type="button" id="forward-5s-btn" class="skip-btn">
                       ⏩ 5秒進む
@@ -450,6 +549,12 @@
                       <button type="button" id="result-back-5s-btn" class="skip-btn">
                         ⏪ 5秒戻る
                       </button>
+                      <button type="button" id="result-back-1s-btn" class="skip-btn">
+                        ⏪ 1秒戻る
+                      </button>
+                      <button type="button" id="result-forward-1s-btn" class="skip-btn">
+                        ⏩ 1秒進む
+                      </button>
                       <button type="button" id="result-forward-5s-btn" class="skip-btn">
                         ⏩ 5秒進む
                       </button>
@@ -551,13 +656,49 @@
           <button type="button" class="modal-close">&times;</button>
         </div>
         <div class="modal-body">
-          <div class="input-group">
-            <label for="new-project-url">YouTube URL:</label>
-            <input
-              type="text"
-              id="new-project-url"
-              placeholder="https://www.youtube.com/watch?v=..."
-            />
+          <!-- ソース選択タブ -->
+          <div class="source-tabs">
+            <button type="button" class="source-tab active" data-source="youtube">
+              📺 YouTube
+            </button>
+            <button type="button" class="source-tab" data-source="local">
+              📁 ローカルファイル
+            </button>
+          </div>
+
+          <!-- YouTube URL入力 -->
+          <div id="youtube-source" class="source-content active">
+            <div class="input-group">
+              <label for="new-project-url">Original:</label>
+              <input
+                type="text"
+                id="new-project-url"
+                placeholder="https://www.youtube.com/watch?v=..."
+              />
+            </div>
+          </div>
+
+          <!-- ローカルファイル選択 -->
+          <div id="local-source" class="source-content" style="display: none;">
+            <div class="input-group">
+              <label for="new-project-file">動画ファイル:</label>
+              <input
+                type="file"
+                id="new-project-file"
+                accept="video/*"
+              />
+              <small style="color: #666; margin-top: 5px; display: block;">
+                対応形式: MP4, MOV, AVI, MKV など
+              </small>
+            </div>
+            <div class="input-group">
+              <label for="new-project-name">プロジェクト名 (任意):</label>
+              <input
+                type="text"
+                id="new-project-name"
+                placeholder="動画ファイル名から自動生成されます"
+              />
+            </div>
           </div>
         </div>
         <div class="modal-footer">
@@ -573,6 +714,6 @@
 
     <div id="error-message" class="error-message" style="display: none"></div>
 
-    <script src="script.js"></script>
+    <script type="module" src="script.js"></script>
   </body>
 </html>

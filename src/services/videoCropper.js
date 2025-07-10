@@ -64,15 +64,15 @@ export async function cropVideo(inputPath, startTime, endTime, progressCallback)
 
             progressCallback(10, 'クロップ処理を開始しています...');
 
+            // 正規化済みファイルのためストリームコピーで高速処理
             const command = ffmpeg(inputPath)
                 .seekInput(startSeconds)
                 .duration(duration)
                 .output(outputPath)
-                .videoCodec('libx264')
-                .audioCodec('aac')
+                .videoCodec('copy')
+                .audioCodec('copy')
                 .outputOptions([
-                    '-preset', 'medium',
-                    '-crf', '23',
+                    '-avoid_negative_ts', 'make_zero',
                     '-movflags', '+faststart'
                 ]);
 

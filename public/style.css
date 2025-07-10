@@ -105,6 +105,11 @@ body {
 .status-badge.ready { background: #28a745; }
 .status-badge.downloading { background: #ffc107; color: #333; }
 .status-badge.error { background: #dc3545; }
+.status-badge.downloaded { background: #28a745; }
+.status-badge.compressed { background: #28a745; }
+.status-badge.not-downloaded { background: #6c757d; }
+.status-badge.not-compressed { background: #6c757d; }
+.status-badge.compressing { background: #ffc107; color: #333; }
 
 /* メインコンテンツ */
 .main-content {
@@ -495,6 +500,42 @@ body {
     gap: 15px;
     margin-top: 20px;
     justify-content: center;
+}
+
+/* ソース選択タブ */
+.source-tabs {
+    display: flex;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #e1e5e9;
+}
+
+.source-tab {
+    background: none;
+    border: none;
+    padding: 12px 20px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #666;
+    border-bottom: 2px solid transparent;
+    transition: all 0.3s;
+}
+
+.source-tab:hover {
+    background: #f8f9fa;
+    color: #333;
+}
+
+.source-tab.active {
+    color: #3498db;
+    border-bottom-color: #3498db;
+}
+
+.source-content {
+    display: block;
+}
+
+.source-content:not(.active) {
+    display: none;
 }
 
 /* モーダル */

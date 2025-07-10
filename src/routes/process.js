@@ -54,7 +54,7 @@ router.post('/', async (req, res) => {
     processingRequests.add(requestKey);
 
     // CSVファイルを読み込む
-    const fullCsvPath = path.join(process.cwd(), 'public', csvPath);
+    const fullCsvPath = path.join(process.cwd(), csvPath);
     const csvContent = await fs.readFile(fullCsvPath, 'utf8');
     const segments = parseCSV(csvContent);
     
@@ -66,11 +66,12 @@ router.post('/', async (req, res) => {
       throw new Error('動画編集には事前にダウンロードされたローカルファイルが必要です。「YouTubeからダウンロード」ボタンでダウンロードしてください。');
     }
     
-    // ローカルファイルの存在確認
+    // ローカルファイルの存在確認（絶対パスに変換）
+    const fullVideoPath = path.join(process.cwd(), videoPath);
     try {
-      await fs.access(videoPath);
+      await fs.access(fullVideoPath);
     } catch (error) {
-      throw new Error(`指定された動画ファイルが見つかりません: ${videoPath}`);
+      throw new Error(`指定された動画ファイルが見つかりません: ${fullVideoPath}`);
     }
     
     // プログレス更新関数
@@ -92,7 +93,7 @@ router.post('/', async (req, res) => {
     };
 
     // 動画を処理（フォント設定を渡す）
-    const outputPath = await processVideoWithSubtitles(videoPath, segments, sendProgress, font);
+    const outputPath = await processVideoWithSubtitles(fullVideoPath, segments, sendProgress, font);
     
     // 出力ファイル名を取得
     const outputFilename = path.basename(outputPath);

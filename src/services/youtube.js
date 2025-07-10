@@ -238,11 +238,27 @@ export async function redownloadHighQuality(project) {
       ]
     });
     
-    // プロジェクトに保存
-    await saveProjectFile(videoId, 'video_high.mp4', highQualityPath);
+    // 高画質版を正規化
+    console.log('🔧 高画質版を正規化中...');
+    const normalizedHighPath = path.join(tempDir, `${videoId}_normalized_${timestamp}.mp4`);
+    
+    const normalizeCmd = `ffmpeg -i "${highQualityPath}" ` +
+      `-c:v libx264 -c:a aac ` +
+      `-r 30 -async 1 ` +
+      `-preset medium -crf 23 ` +
+      `-avoid_negative_ts make_zero ` +
+      `-movflags +faststart ` +
+      `-y "${normalizedHighPath}"`;
+    
+    await execAsync(normalizeCmd);
+    console.log('✅ 高画質版正規化完了');
+    
+    // 正規化済み高画質版をプロジェクトに保存
+    await saveProjectFile(videoId, 'video_high.mp4', normalizedHighPath);
     
     // 一時ファイルを削除
     fs.unlinkSync(highQualityPath);
+    fs.unlinkSync(normalizedHighPath);
     
     await updateProjectStatus(videoId, 'ready');
     console.log('✅ 高画質版再ダウンロード完了');
@@ -277,7 +293,7 @@ export async function recompressAnalysisVideo(project) {
     const timestamp = Date.now();
     const analysisPath = path.join(tempDir, `${videoId}_analysis_${timestamp}.mp4`);
     
-    // FFmpegで圧縮（480p、低ビットレート、音声認識に十分な品質）
+    // FFmpegで圧縮（正規化済み高画質版から解析用を生成）
     const ffmpegCmd = `ffmpeg -i "${highQualityPath}" ` +
       `-vf "scale=-2:480" ` +
       `-c:v libx264 -preset fast -crf 28 ` +
@@ -458,8 +474,8 @@ export async function createVideoProject(url, options = {}, progressCallback = n
     const highQualityStats = fs.statSync(highQualityPath);
     const highQualityFilesize = highQualityStats.size;
     
-    // プロジェクトに保存
-    await saveProjectFile(info.id, 'video_high.mp4', highQualityPath);
+    // 正規化済み高画質版をプロジェクトに保存
+    await saveProjectFile(info.id, 'video_high.mp4', normalizedHighPath);
     
     // メタデータを更新（ファイルサイズ情報を追加）
     await updateProjectMetadata(info.id, {
@@ -476,8 +492,23 @@ export async function createVideoProject(url, options = {}, progressCallback = n
     
     const analysisPath = path.join(tempDir, `${info.id}_analysis_${timestamp}.mp4`);
     
-    // FFmpegで圧縮（480p、低ビットレート、音声認識に十分な品質）
-    const ffmpegCmd = `ffmpeg -i "${highQualityPath}" ` +
+    // 高画質版を正規化（フレームレート統一、タイムスタンプ正規化、音声同期）
+    console.log('🔧 高画質版を正規化中...');
+    const normalizedHighPath = path.join(tempDir, `${info.id}_normalized_${timestamp}.mp4`);
+    
+    const normalizeCmd = `ffmpeg -i "${highQualityPath}" ` +
+      `-c:v libx264 -c:a aac ` +
+      `-r 30 -async 1 ` +
+      `-preset medium -crf 23 ` +
+      `-avoid_negative_ts make_zero ` +
+      `-movflags +faststart ` +
+      `-y "${normalizedHighPath}"`;
+    
+    await execAsync(normalizeCmd);
+    console.log('✅ 高画質版正規化完了');
+    
+    // FFmpegで圧縮（正規化済み高画質版から解析用を生成）
+    const ffmpegCmd = `ffmpeg -i "${normalizedHighPath}" ` +
       `-vf "scale=-2:480" ` +
       `-c:v libx264 -preset fast -crf 28 ` +
       `-c:a aac -b:a 128k -ar 44100 ` +
@@ -496,6 +527,7 @@ export async function createVideoProject(url, options = {}, progressCallback = n
     
     // 一時ファイルを削除
     fs.unlinkSync(highQualityPath);
+    fs.unlinkSync(normalizedHighPath);
     fs.unlinkSync(analysisPath);
     
     await updateProjectStatus(info.id, 'ready');

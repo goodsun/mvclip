@@ -13,8 +13,7 @@ import { processRouter } from './routes/process.js';
 import { formatsRouter } from './routes/formats.js';
 import { projectsRouter } from './routes/projects.js';
 import { fontsRouter } from './routes/fonts.js';
-import { cropRouter } from './routes/crop.js';
-import { cropProjectRouter } from './routes/cropProject.js';
+import { videoRouter } from './routes/video.js';
 
 dotenv.config();
 
@@ -51,8 +50,7 @@ app.use('/api/process', processRouter);
 app.use('/api/formats', formatsRouter);
 app.use('/api/projects', projectsRouter);
 app.use('/api/fonts', fontsRouter);
-app.use('/api/crop-video', cropRouter);
-app.use('/api/create-crop-project', cropProjectRouter);
+app.use('/api/video', videoRouter);
 
 // プロジェクトファイル配信
 app.get('/projects/:videoId/:fileName', (req, res) => {

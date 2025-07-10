@@ -1,10 +1,29 @@
 import express from 'express';
 import { createVideoProject } from '../services/youtube.js';
+import { createLocalProject } from '../services/localFileProcessor.js';
 import { listProjects, getProject, deleteProject, initializeWorkdir, updateAnalysisRange, saveCSVContent, getCSVContent } from '../services/projectManager.js';
 import fs from 'fs/promises';
 import path from 'path';
+import multer from 'multer';
 
 const router = express.Router();
+
+// ローカルファイルアップロード用のmulter設定
+const upload = multer({
+  dest: 'uploads/',
+  limits: {
+    fileSize: 500 * 1024 * 1024, // 500MB
+  },
+  fileFilter: (req, file, cb) => {
+    const videoTypes = /\.(mp4|mov|avi|mkv|webm|flv|wmv|m4v)$/i;
+    const imageTypes = /\.(jpg|jpeg|png|gif|bmp|webp|tiff)$/i;
+    if (videoTypes.test(file.originalname) || imageTypes.test(file.originalname)) {
+      cb(null, true);
+    } else {
+      cb(new Error('対応していないファイル形式です。動画: MP4, MOV, AVI, MKV, WebM, FLV, WMV, M4V / 静止画: JPG, PNG, GIF, BMP, WebP, TIFF のみサポートしています。'));
+    }
+  }
+});
 
 // プロジェクト一覧を取得
 router.get('/', async (req, res) => {
@@ -82,6 +101,144 @@ router.post('/create', async (req, res) => {
     console.error('プロジェクト作成エラー:', error);
     res.status(500).json({ 
       error: error.message || 'プロジェクトの作成に失敗しました' 
+    });
+  }
+});
+
+// ローカルファイルから新しいプロジェクトを作成
+router.post('/create/local', upload.single('file'), async (req, res) => {
+  try {
+    const { name } = req.body;
+    const file = req.file;
+    
+    if (!file) {
+      return res.status(400).json({ error: '動画ファイルが必要です' });
+    }
+
+    if (!name) {
+      return res.status(400).json({ error: 'プロジェクト名が必要です' });
+    }
+
+    console.log(`ローカルファイルからプロジェクト作成: ${name} (${file.originalname})`);
+    
+    // セッションIDを生成（進捗追跡用）
+    const sessionId = `create_local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // 進捗コールバック関数
+    const progressCallback = (stage, progress, message) => {
+      const progressClients = req.app.get('progressClients') || new Map();
+      const client = progressClients.get(sessionId);
+      if (client) {
+        client.write(`data: ${JSON.stringify({
+          type: 'progress',
+          stage,
+          progress,
+          message,
+          timestamp: new Date().toISOString()
+        })}\n\n`);
+      }
+    };
+    
+    // レスポンスヘッダーを即座に送信
+    res.json({
+      success: true,
+      sessionId,
+      message: 'ローカルファイルからプロジェクト作成を開始しました'
+    });
+    
+    // バックグラウンドでプロジェクト作成を実行
+    createLocalProject(file.path, file.originalname, name, progressCallback)
+      .then(result => {
+        progressCallback('completed', 100, 'プロジェクト作成完了');
+        console.log('✅ ローカルファイルプロジェクト作成完了:', result.projectId);
+        
+        // アップロードファイルを削除
+        fs.unlink(file.path).catch(console.error);
+      })
+      .catch(error => {
+        progressCallback('error', 0, `エラー: ${error.message}`);
+        console.error('❌ ローカルファイルプロジェクト作成エラー:', error);
+        
+        // エラー時もアップロードファイルを削除
+        fs.unlink(file.path).catch(console.error);
+      });
+    
+  } catch (error) {
+    console.error('ローカルファイルプロジェクト作成エラー:', error);
+    
+    // エラー時はアップロードファイルを削除
+    if (req.file) {
+      fs.unlink(req.file.path).catch(console.error);
+    }
+    
+    res.status(500).json({ 
+      error: error.message || 'ローカルファイルからのプロジェクト作成に失敗しました' 
+    });
+  }
+});
+
+// 動画・静止画結合エンドポイント
+router.post('/:videoId/concat', upload.single('file'), async (req, res) => {
+  try {
+    const { videoId } = req.params;
+    const { position, fileType, duration } = req.body;
+    const file = req.file;
+    
+    if (!file) {
+      return res.status(400).json({ error: '結合するファイルが必要です' });
+    }
+
+    if (!position || !['prepend', 'append'].includes(position)) {
+      return res.status(400).json({ error: '結合位置が無効です' });
+    }
+
+    if (!fileType || !['video', 'image'].includes(fileType)) {
+      return res.status(400).json({ error: 'ファイル種類が無効です' });
+    }
+
+    if (fileType === 'image' && (!duration || isNaN(parseFloat(duration)) || parseFloat(duration) <= 0)) {
+      return res.status(400).json({ error: '静止画の表示時間が無効です' });
+    }
+
+    const contentType = fileType === 'image' ? '静止画' : '動画';
+    console.log(`${contentType}結合: ${videoId} - ${position === 'prepend' ? '前に挿入' : '後ろに追加'} (${file.originalname}${fileType === 'image' ? `, ${duration}秒` : ''})`);
+    
+    // プロジェクトの存在確認
+    const project = await getProject(videoId);
+    if (!project) {
+      return res.status(404).json({ error: 'プロジェクトが見つかりません' });
+    }
+
+    // 高画質版動画の存在確認
+    const highQualityPath = path.join(process.cwd(), 'workdir', videoId, 'video_high.mp4');
+    try {
+      await fs.access(highQualityPath);
+    } catch {
+      return res.status(400).json({ error: '高画質版動画が見つかりません' });
+    }
+
+    // ファイル結合を実行
+    const { concatVideos } = await import('../services/videoConcatenator.js');
+    await concatVideos(videoId, file.path, position, fileType, fileType === 'image' ? parseFloat(duration) : null);
+    
+    // アップロードファイルを削除
+    await fs.unlink(file.path);
+    
+    res.json({
+      success: true,
+      message: `${contentType}が${position === 'prepend' ? '前に' : '後ろに'}結合されました`
+    });
+    
+  } catch (error) {
+    console.error('動画結合エラー:', error);
+    
+    // エラー時はアップロードファイルを削除
+    if (req.file) {
+      fs.unlink(req.file.path).catch(console.error);
+    }
+    
+    res.status(500).json({ 
+      error: error.message || '動画結合に失敗しました' 
     });
   }
 });

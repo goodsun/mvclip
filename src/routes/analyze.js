@@ -9,11 +9,24 @@ const router = express.Router();
 // 動画を解析してCSVを生成
 router.post('/', async (req, res) => {
   try {
-    const { videoPath, videoId, timeRange } = req.body;
+    const { projectId, startTime, endTime } = req.body;
     
-    if (!videoPath) {
-      return res.status(400).json({ error: '動画パスが必要です' });
+    if (!projectId) {
+      return res.status(400).json({ error: 'プロジェクトIDが必要です' });
     }
+
+    // 解析用動画のパスを取得
+    const videoPath = path.join(process.cwd(), 'workdir', projectId, 'video_analysis.mp4');
+    
+    // 動画ファイルの存在確認
+    try {
+      await fs.access(videoPath);
+    } catch {
+      return res.status(400).json({ error: '解析用動画ファイルが見つかりません。先にダウンロードしてください。' });
+    }
+
+    // 時間範囲の設定
+    const timeRange = (startTime || endTime) ? { start: startTime, end: endTime } : null;
 
     console.log(`音声認識開始: ${videoPath}`);
     
@@ -50,19 +63,24 @@ router.post('/', async (req, res) => {
     const csvContent = generateCSV(transcription, timeOffset);
     
     // CSVファイルを保存
-    const csvFilename = `${videoId}_${Date.now()}.csv`;
+    const csvFilename = `${projectId}_${Date.now()}.csv`;
     const csvPath = path.join(process.cwd(), 'public', 'outputs', csvFilename);
     
     // outputsディレクトリを作成
     await fs.mkdir(path.dirname(csvPath), { recursive: true });
     await fs.writeFile(csvPath, csvContent, 'utf8');
     
+    // プロジェクトのsubtitles.csvも更新
+    const projectCsvPath = path.join(process.cwd(), 'workdir', projectId, 'subtitles.csv');
+    await fs.writeFile(projectCsvPath, csvContent, 'utf8');
+    
     res.json({
       success: true,
+      csvContent: csvContent,
       csvPath: `/outputs/${csvFilename}`,
-      csvContent,
-      transcription
+      message: '解析が完了しました'
     });
+    
   } catch (error) {
     console.error('解析エラー:', error);
     res.status(500).json({ 
