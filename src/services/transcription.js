@@ -139,11 +139,12 @@ export async function transcribeVideo(videoPath, timeRange = null, compressionLe
     console.log(`   最適化音声: ${audioSizeMB.toFixed(2)} MB`);
     console.log(`   圧縮率: ${compressionRatio}% 削減`);
     
-    // 音声ファイルを分割（25MB制限対応）
+    // 音声ファイルを分割（10MB以上は分割処理）
     const fileSizeInMB = audioSizeMB;
     
-    if (fileSizeInMB > 24) {
-      // 大きいファイルは分割処理
+    if (fileSizeInMB > 10) {
+      // 10MB以上のファイルは分割処理（接続エラー対策）
+      console.log('🔄 大きなファイルのため分割処理を実行します...');
       return await transcribeLargeAudio(audioPath);
     }
     
