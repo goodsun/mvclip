@@ -17,7 +17,7 @@ export const compressionLevels = {
     analysisAudio: {
       codec: 'mp3',
       channels: 1,
-      sampleRate: '22050',
+      sampleRate: 'original',  // 元のサンプリングレートを維持
       bitrate: '128k'
     }
   },
@@ -39,7 +39,7 @@ export const compressionLevels = {
     analysisAudio: {
       codec: 'mp3',
       channels: 1,
-      sampleRate: '22050',
+      sampleRate: 'original',  // 元のサンプリングレートを維持
       bitrate: '96k'
     }
   },
@@ -61,7 +61,7 @@ export const compressionLevels = {
     analysisAudio: {
       codec: 'mp3',
       channels: 1,
-      sampleRate: '16000',
+      sampleRate: 'original',  // 元のサンプリングレートを維持
       bitrate: '64k'
     }
   }
@@ -123,7 +123,14 @@ export function generateAudioCommand(inputPath, outputPath, compressionLevel = d
   }
   
   // 音声設定（解析用）
-  command += ` -vn -ac ${settings.analysisAudio.channels} -ar ${settings.analysisAudio.sampleRate} -ab ${settings.analysisAudio.bitrate} -acodec ${settings.analysisAudio.codec}`;
+  command += ` -vn -ac ${settings.analysisAudio.channels}`;
+  
+  // サンプリングレートの設定（'original'の場合は元のレートを維持）
+  if (settings.analysisAudio.sampleRate !== 'original') {
+    command += ` -ar ${settings.analysisAudio.sampleRate}`;
+  }
+  
+  command += ` -ab ${settings.analysisAudio.bitrate} -acodec ${settings.analysisAudio.codec}`;
   
   // 出力パス
   command += ` -y "${outputPath}"`;

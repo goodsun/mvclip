@@ -381,6 +381,10 @@ function setupEventListeners() {
     // CSVダウンロード
     document.getElementById('download-csv').addEventListener('click', downloadCSV);
     
+    // 動画編集タブのCSV保存・ダウンロード
+    document.getElementById('edit-save-csv').addEventListener('click', saveEditedCSV);
+    document.getElementById('edit-download-csv').addEventListener('click', downloadEditedCSV);
+    
     // 動画編集
     document.getElementById('preview-video-btn').addEventListener('click', generatePreviewVideo);
     document.getElementById('final-video-btn').addEventListener('click', generateFinalVideo);
@@ -664,6 +668,64 @@ async function saveCSVToProject(event) {
 function downloadCSV(event) {
     if (event) event.preventDefault();
     const csvContent = document.getElementById('csv-content').value;
+    
+    if (!csvContent) {
+        showError('ダウンロードするCSVデータがありません');
+        return;
+    }
+    
+    // クライアントサイドでダウンロード
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.download = currentProject ? `${currentProject.videoId}_subtitles.csv` : 'subtitles.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    showInfo('CSVファイルをダウンロードしました');
+}
+
+// 動画編集タブのCSV保存
+async function saveEditedCSV(event) {
+    if (event) event.preventDefault();
+    const csvContent = document.getElementById('csv-editor-content').value;
+    
+    if (!csvContent || !currentProject) {
+        showError('保存するCSVデータがありません');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/projects/${currentProject.videoId}/csv`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ csvContent })
+        });
+        
+        if (!response.ok) {
+            throw new Error('CSV保存に失敗しました');
+        }
+        
+        showInfo('CSVがプロジェクトに保存されました');
+        
+        // プロジェクト情報を更新
+        await selectProject(currentProject.videoId);
+        
+        // 字幕プレビューを更新
+        updateSubtitlePreview();
+        
+    } catch (error) {
+        showError(error.message);
+    }
+}
+
+// 動画編集タブのCSVダウンロード
+function downloadEditedCSV(event) {
+    if (event) event.preventDefault();
+    const csvContent = document.getElementById('csv-editor-content').value;
     
     if (!csvContent) {
         showError('ダウンロードするCSVデータがありません');
@@ -1799,4 +1861,103 @@ function parseCSVLine(line) {
     
     values.push(current.trim());
     return values;
+}
+
+// 空白補完ボタンのイベントリスナー
+document.getElementById('fill-gaps-btn')?.addEventListener('click', () => {
+    const csvTextarea = document.getElementById('csv-content');
+    if (!csvTextarea || !csvTextarea.value) {
+        showError('CSVデータがありません');
+        return;
+    }
+    
+    try {
+        const filledCSV = fillGapsInCSV(csvTextarea.value);
+        csvTextarea.value = filledCSV;
+        
+        // 編集タブのCSVも更新
+        const editorTextarea = document.getElementById('csv-editor-content');
+        if (editorTextarea) {
+            editorTextarea.value = filledCSV;
+            updateFontPreview();
+        }
+        
+        showInfo('空白部分を補完しました');
+    } catch (error) {
+        showError('空白補完処理でエラーが発生しました: ' + error.message);
+    }
+});
+
+// 時間文字列を秒数に変換する関数
+function parseTime(timeStr) {
+    // hh:mm:ss.sss, mm:ss.sss または ss.sss 形式をパース
+    const timeParts = timeStr.split(':');
+    
+    if (timeParts.length === 3) {
+        // hh:mm:ss.sss 形式
+        const hours = parseInt(timeParts[0], 10) || 0;
+        const mins = parseInt(timeParts[1], 10) || 0;
+        const secParts = timeParts[2].split('.');
+        const secs = parseInt(secParts[0], 10) || 0;
+        const ms = secParts[1] ? parseInt(secParts[1], 10) : 0;
+        return hours * 3600 + mins * 60 + secs + ms / 1000;
+    } else if (timeParts.length === 2) {
+        // mm:ss.sss 形式
+        const mins = parseInt(timeParts[0], 10) || 0;
+        const secParts = timeParts[1].split('.');
+        const secs = parseInt(secParts[0], 10) || 0;
+        const ms = secParts[1] ? parseInt(secParts[1], 10) : 0;
+        return mins * 60 + secs + ms / 1000;
+    } else {
+        // ss.sss 形式
+        return parseFloat(timeStr) || 0;
+    }
+}
+
+// CSVの空白を補完する関数
+function fillGapsInCSV(csvContent) {
+    const lines = csvContent.trim().split('\n');
+    if (lines.length < 2) return csvContent; // ヘッダーのみの場合は何もしない
+    
+    const header = lines[0];
+    const dataLines = lines.slice(1);
+    const newLines = [header];
+    
+    let gapsFound = 0;
+    
+    for (let i = 0; i < dataLines.length; i++) {
+        const currentLine = dataLines[i];
+        const values = parseCSVLine(currentLine);
+        
+        if (values.length < 3) {
+            console.warn(`行 ${i + 2} をスキップ: 不正な形式`, currentLine);
+            continue; // 不正な行はスキップ
+        }
+        
+        // 現在の行を追加
+        newLines.push(currentLine);
+        
+        // 次の行がある場合、間隔をチェック
+        if (i < dataLines.length - 1) {
+            const nextValues = parseCSVLine(dataLines[i + 1]);
+            if (nextValues.length >= 3) {
+                const currentEnd = parseTime(values[1]);
+                const nextStart = parseTime(nextValues[0]);
+                const gap = nextStart - currentEnd;
+                
+                console.log(`行 ${i + 2}-${i + 3} 間: 終了=${values[1]}(${currentEnd}秒), 開始=${nextValues[0]}(${nextStart}秒), 間隔=${gap.toFixed(3)}秒`);
+                
+                // 0.001秒以上の間隔がある場合、空白行を挿入
+                if (gap > 0.001) {
+                    const gapLine = `${values[1]},${nextValues[0]}," "`;
+                    newLines.push(gapLine);
+                    gapsFound++;
+                    console.log(`空白行を挿入: ${gapLine}`);
+                }
+            }
+        }
+    }
+    
+    console.log(`空白補完完了: ${gapsFound}箇所の空白を挿入`);
+    return newLines.join('\n');
 }

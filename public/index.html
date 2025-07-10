@@ -5,9 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>YouTube Clip Subtitles - プロジェクト管理</title>
     <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@400;500;700&family=M+PLUS+1p:wght@400;500;700&family=Kosugi+Maru&family=Sawarabi+Gothic&family=Sawarabi+Mincho&family=Roboto:wght@400;500;700&family=Open+Sans:wght@400;600;700&family=Lato:wght@400;700&family=Source+Sans+Pro:wght@400;600&family=Montserrat:wght@400;600&family=Oswald:wght@400;500&family=Raleway:wght@400;600&family=PT+Sans:wght@400;700&family=Ubuntu:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@400;500;700&family=M+PLUS+1p:wght@400;500;700&family=Kosugi+Maru&family=Sawarabi+Gothic&family=Sawarabi+Mincho&family=Roboto:wght@400;500;700&family=Open+Sans:wght@400;600;700&family=Lato:wght@400;700&family=Source+Sans+Pro:wght@400;600&family=Montserrat:wght@400;600&family=Oswald:wght@400;500&family=Raleway:wght@400;600&family=PT+Sans:wght@400;700&family=Ubuntu:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -120,10 +123,12 @@
                   </div>
                   <div class="file-info" id="high-quality-info">
                     <p>動画編集で使用する高画質版です</p>
-                    <button type="button" 
-                            id="redownload-high-btn" 
-                            class="secondary-btn" 
-                            style="display: none; margin-top: 10px;">
+                    <button
+                      type="button"
+                      id="redownload-high-btn"
+                      class="secondary-btn"
+                      style="display: none; margin-top: 10px"
+                    >
                       🔄 再ダウンロード
                     </button>
                   </div>
@@ -138,10 +143,12 @@
                   </div>
                   <div class="file-info" id="analysis-info">
                     <p>音声認識で字幕を生成する際に使用します</p>
-                    <button type="button" 
-                            id="recompress-analysis-btn" 
-                            class="secondary-btn" 
-                            style="display: none; margin-top: 10px;">
+                    <button
+                      type="button"
+                      id="recompress-analysis-btn"
+                      class="secondary-btn"
+                      style="display: none; margin-top: 10px"
+                    >
                       🔄 再圧縮
                     </button>
                   </div>
@@ -209,8 +216,15 @@
                 </div>
 
                 <!-- 範囲設定制御 -->
-                <div class="range-controls" style="margin-top: 15px; text-align: center">
-                  <div id="range-display" class="range-display" style="margin-bottom: 10px">
+                <div
+                  class="range-controls"
+                  style="margin-top: 15px; text-align: center"
+                >
+                  <div
+                    id="range-display"
+                    class="range-display"
+                    style="margin-bottom: 10px"
+                  >
                     再生範囲: 全体
                   </div>
                   <div
@@ -311,6 +325,13 @@
                 <h4>CSV生成完了</h4>
                 <textarea id="csv-content" rows="15" cols="80"></textarea>
                 <div class="csv-actions">
+                  <button
+                    type="button"
+                    id="fill-gaps-btn"
+                    class="secondary-btn"
+                  >
+                    🔧 空白補完
+                  </button>
                   <button type="button" id="download-csv" class="secondary-btn">
                     CSVをダウンロード
                   </button>
@@ -328,16 +349,33 @@
               <h3>✂️ 動画編集</h3>
 
               <div class="csv-editor">
-                <h4>字幕データ（CSV）</h4>
-                <textarea
-                  id="csv-editor-content"
-                  rows="15"
-                  cols="80"
-                  placeholder="字幕解析を実行すると、ここにCSVデータが表示されます"
-                ></textarea>
-
-                <!-- フォント設定 -->
                 <div class="font-settings">
+                  <h4>字幕データ（CSV）</h4>
+                  <textarea
+                    id="csv-editor-content"
+                    rows="15"
+                    cols="80"
+                    placeholder="字幕解析を実行すると、ここにCSVデータが表示されます"
+                  ></textarea>
+
+                  <div class="csv-actions" style="margin-bottom: 20px">
+                    <button
+                      type="button"
+                      id="edit-save-csv"
+                      class="primary-btn"
+                    >
+                      💾 CSV保存
+                    </button>
+                    <button
+                      type="button"
+                      id="edit-download-csv"
+                      class="secondary-btn"
+                    >
+                      📥 CSVダウンロード
+                    </button>
+                  </div>
+
+                  <!-- フォント設定 -->
                   <h4>🔤 フォント設定</h4>
                   <div class="font-options">
                     <div class="input-group">
@@ -350,8 +388,13 @@
                   <!-- フォントプレビュー -->
                   <div class="font-preview">
                     <div class="preview-label">字幕プレビュー:</div>
-                    <div id="subtitle-preview-list" class="subtitle-preview-list">
-                      <p class="preview-placeholder">CSVデータを読み込むと、ここに字幕が表示されます</p>
+                    <div
+                      id="subtitle-preview-list"
+                      class="subtitle-preview-list"
+                    >
+                      <p class="preview-placeholder">
+                        CSVデータを読み込むと、ここに字幕が表示されます
+                      </p>
                     </div>
                   </div>
                 </div>
