@@ -8,27 +8,31 @@
 ### ✅ 現在利用可能：プロジェクトAPIキー
 - **プレフィックス**: `sk-proj-xxxxxxxxxxxxxxxxxxxxxxx`
 - **作成方法**: OpenAI Platform > Projects > API Keys
-- **ステータス**: 現在唯一作成可能なAPIキー
+- **ステータス**: 2024年より唯一作成可能なAPIキー
+- **特徴**: プロジェクト単位でのアクセス制御
 
 ### ❌ 廃止済み：クラシックAPIキー
 - **プレフィックス**: `sk-xxxxxxxxxxxxxxxxxxxxxxx`
-- **ステータス**: 2024年に廃止、新規作成不可
-- **既存キー**: 引き続き利用可能（在庫限り）
+- **ステータス**: 2024年に新規作成廃止
+- **既存キー**: まだ利用可能（段階的廃止予定）
 
 ## 🔑 APIキーの作成方法
 
 ### 1. OpenAI Platform にアクセス
 https://platform.openai.com/api-keys
 
-### 2. 新しいAPIキーを作成
-1. 「Create new secret key」をクリック
-2. 名前を入力（例：y2clip-production）
-3. **重要**: プロジェクトAPIキーではなく、クラシックキーを要求
+### 2. プロジェクト作成
+1. 「Create new project」をクリック
+2. プロジェクト名を入力（例：mvclip-project）
+3. 用途を選択（Personal use など）
 
-### 3. 必要な権限
-- ✅ **Models**: モデル一覧の取得
-- ✅ **Audio**: Whisper API（音声→テキスト変換）
-- ✅ **Files**: ファイルアップロード
+### 3. APIキー作成
+1. プロジェクト内で「API Keys」タブを選択
+2. 「Create new secret key」をクリック
+3. 名前を入力（例：mvclip-api-key）
+4. 権限を設定：
+   - ✅ **All**: 全ての権限（推奨）
+   - または個別に **Audio** 権限を選択
 
 ## 💰 使用量と制限
 
@@ -45,14 +49,18 @@ https://platform.openai.com/api-keys
 
 ### 1. 環境変数設定
 ```bash
-# .env ファイルに追加
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxx
+# .env ファイルに追加（プロジェクトAPIキーの場合）
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 ### 2. APIキー形式の確認
 ```bash
-# APIキーの確認コマンド
-echo $OPENAI_API_KEY | grep -E "^sk-[a-zA-Z0-9]{48}$"
+# プロジェクトAPIキーの確認
+echo $OPENAI_API_KEY | head -c 8
+# 期待値：sk-proj-
+
+# または詳細確認
+echo "API Key format: ${OPENAI_API_KEY:0:8}...${OPENAI_API_KEY: -4}"
 ```
 
 ### 3. 権限テスト

@@ -130,8 +130,8 @@ export function updateFontPreview() {
     
     const lines = csvContent.split('\n').filter(line => line.trim());
     
-    // ヘッダー行をスキップ（もしあれば）
-    const dataLines = lines[0].includes('start_time') ? lines.slice(1) : lines;
+    // ヘッダー行をスキップ（start, start_time, text などを含む行）
+    const dataLines = (lines[0] && (lines[0].includes('start') && lines[0].includes('text'))) ? lines.slice(1) : lines;
     
     const subtitles = dataLines.map(line => {
         const values = parseCSVLine(line);
@@ -150,12 +150,11 @@ export function updateFontPreview() {
         return;
     }
     
-    // 最初の10行を表示
-    const previewSubtitles = subtitles.slice(0, 10);
+    const previewSubtitles = subtitles;
     
     previewList.innerHTML = previewSubtitles.map(subtitle => `
         <div class="subtitle-preview-item" style="font-family: '${selectedFont}', Arial, sans-serif;">
-            ${subtitle.text.trim() ? escapeHtml(subtitle.text) : '<span style="color: #999;">(無音)</span>'}
+            ${escapeHtml(subtitle.text)}
         </div>
     `).join('');
 }

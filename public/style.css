@@ -634,10 +634,17 @@ body {
     border: 1px solid #dee2e6;
     border-radius: 4px;
     padding: 10px;
-    height: 210px; /* 10行分の固定高さ (14px × 1.5 × 10 = 210px) */
+    height: 210px;
     overflow-y: auto;
     font-size: 14px;
     line-height: 1.5;
+}
+
+.subtitle-preview-item {
+    padding: 2px 0;
+    margin-bottom: 2px;
+    word-wrap: break-word;
+    line-height: 1.4;
 }
 
 .subtitle-text {
